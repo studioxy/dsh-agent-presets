@@ -1,0 +1,3 @@
+name: "Documentation / HTML / PDF"
+description: "Documentation from a repository: HTML and PDF with diagrams, animation and interactive charts. Ten skills plus a Chrome DevTools MCP, so output is verified by rendering and auditing it rather than by trusting it."
+order: 20

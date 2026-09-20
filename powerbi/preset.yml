@@ -1,0 +1,3 @@
+name: "Power BI / Deneb"
+description: "Power BI PBIP authoring: report and semantic model, TMDL, PBIR, DAX, and Deneb (Vega or Vega-Lite) visuals. Carries the Deneb and PBIR format skills, plus the official Microsoft modelling and report-cli skills."
+order: 10

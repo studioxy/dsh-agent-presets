@@ -1,0 +1,50 @@
+description: DSH coding preset - LSP-backed code intelligence only. Native tools already cover file reads, writes, globbing, content search and shell.
+
+prompt: |
+  Serena supplies code intelligence the native tools do not: symbol search, reference search,
+  file and symbol overviews, diagnostics, and symbol-level edits. Use them for code.
+
+  - Before reading a code file, call get_symbols_overview and then find_symbol with include_body.
+    Reading whole files is what this context exists to avoid.
+  - Before changing a symbol, call find_referencing_symbols. Do not assume you know the callers.
+    To find what implements or subclasses a symbol, use find_referencing_symbols or find_symbol
+    as well: find_implementations is excluded because the Pyright backend cannot serve it.
+  - Prefer replace_symbol_body and insert_*_symbol over line-based edits for code.
+  - get_diagnostics_for_file reports language-server errors without running a build.
+
+  File reads and writes, globbing, content search and shell commands belong to the native tools.
+  Serena's equivalents are excluded here, so do not look for them.
+
+excluded_tools:
+  # duplicates of native tool-fs, tool-fs-search and tool-pwsh
+  - create_text_file
+  - read_file
+  - execute_shell_command
+  - find_file
+  - list_dir
+  - search_for_pattern
+  - replace_content
+  # memory system: the filesystem and the skill catalogue already cover this
+  - write_memory
+  - read_memory
+  - list_memories
+  - delete_memory
+  - edit_memory
+  - rename_memory
+  # session bootstrap and project switching, not needed under a single fixed project
+  - initial_instructions
+  - onboarding
+  - get_current_config
+  - activate_project
+  # not supported by the Pyright backend. textDocument/implementation answers -32601 Unhandled
+  # method, so this tool failed on every call in all four clean pretest sessions. A tool that
+  # always fails still costs a definition on every request, so it is excluded until the project
+  # moves to the JetBrains backend, which implements it. Use find_referencing_symbols or
+  # find_symbol for class hierarchies instead.
+  - find_implementations
+
+tool_description_overrides: {}
+
+single_project: true
+
+structured_tool_output: false

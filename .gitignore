@@ -1,0 +1,11 @@
+# Python virtualenv for the pdf skill in the docs preset (77 MB).
+# Rebuild it from docs/skills/pdf/LOCAL-SETUP.md rather than committing it.
+docs/venv/
+**/venv/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# anything else transient
+*.log
+*.tmp
