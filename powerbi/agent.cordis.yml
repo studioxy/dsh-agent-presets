@@ -253,3 +253,35 @@
 
 - id: present
   name: '@deepseek-ai/dsh-tool-present'
+
+# ── MCP: the semantic model itself ──────────────────────────────────────────
+
+# Mounted because the file-based workflow cannot verify the two things this project edits most.
+# Verified before mounting: the server starts, ConnectFolder loads the model straight from the TMDL
+# folder with no Power BI Desktop running, and partition_operations LIST found four partitions with
+# FactShipments reported as sourceType M.
+#
+# What it adds that editing files does not:
+#   partition_operations GET / UPDATE    read and write the M partition
+#   partition_operations REFRESHWITHXMLA run the M
+#   named_expression_operations          the shared M parameters this model uses
+#   transaction_operations               BEGIN / COMMIT / ROLLBACK around a change
+#   dax_query_operations                 Execute and Validate, which is how the audit findings
+#                                        were confirmed rather than assumed
+#
+# The rollback is the part that matters most: change the M, run it, and undo it if it fails,
+# instead of editing TMDL by hand and reloading in the hope that it holds.
+#
+# Fail-soft, like the other MCP rows.
+- id: mcp-powerbi-modeling
+  name: '@deepseek-ai/dsh-mcp-client'
+  config:
+    transport: stdio
+    serverName: powerbi-modeling
+    command: npx
+    args:
+      - '-y'
+      - '@microsoft/powerbi-modeling-mcp@latest'
+      - '--start'
+    toolCallTimeoutMs: 240000
+    failOnStartupError: false
