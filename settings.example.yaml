@@ -1,0 +1,162 @@
+# Example DSH settings for these presets.
+#
+# Copy to <dshHome>/settings.yaml and adjust. It contains no secrets: providers reference
+# credentials by name through `apiKeyEnv`, which the harness resolves per request from its own
+# credential store. Put the actual keys there, never here.
+#
+# Verified against the live gateways when written. Model limits are the values the gateways
+# themselves declare in their /models responses, not estimates.
+
+ui-onboarding:
+  welcomeNoticeVersion: 2026-08-13.1
+
+llm-pi-ai:
+  providers:
+    openrouter:
+      apiKeyEnv: OPENROUTER_API_KEY
+
+    # ── CheaperInference ────────────────────────────────────────────────────
+    # Hand-declared, because the pi-ai catalog ships only openrouter, anthropic, openai,
+    # deepseek, google, groq, mistral, xai, cerebras, together and fireworks. A route the
+    # catalog does not describe must declare its protocol, endpoint and model list itself.
+    #
+    # Verified: GET /models returned 72 entries and chat completions answered HTTP 200.
+    cheaperinference:
+      displayName: CheaperInference
+      apiKeyEnv: CHEAPERINFERENCE_API_KEY
+      api: openai-completions
+      baseURL: https://api.cheaperinference.com/v1
+      defaultContextWindow: 262144
+      defaultMaxTokens: 32768
+      models:
+        - id: qwen-3-8-max
+          name: Qwen 3.8 Max
+          contextWindow: 1000000
+          maxTokens: 131072
+        - id: qwen-3-8-27b
+          name: Qwen 3.8 27B
+          contextWindow: 262144
+          maxTokens: 65536
+        - id: deepseek-v4-flash
+          name: DeepSeek V4 Flash
+          contextWindow: 1000000
+          maxTokens: 128000
+        - id: deepseek-v4.1-flash
+          name: DeepSeek V4.1 Flash
+          contextWindow: 1000000
+          maxTokens: 128000
+        - id: deepseek-v4-pro
+          name: DeepSeek V4 Pro
+          contextWindow: 1000000
+          maxTokens: 131072
+        - id: claude-opus-5
+          name: Claude Opus 5
+          contextWindow: 200000
+          maxTokens: 64000
+        - id: glm-5.3
+          name: GLM 5.3
+          contextWindow: 200000
+          maxTokens: 32000
+
+    # ── Kilo Code Gateway ───────────────────────────────────────────────────
+    # Kilo Code is a client, not a provider: its provider documentation covers configuring other
+    # OpenAI-compatible endpoints inside it. It does run its own gateway, and that base URL is
+    # published in its Gateway section rather than on the provider page.
+    #
+    # Verified: GET /models returned 394 entries and chat completions answered HTTP 200.
+    # Model ids are namespaced as provider/model, unlike every other route here.
+    kilocode:
+      displayName: Kilo Code Gateway
+      apiKeyEnv: KILOCODE_API_KEY
+      api: openai-completions
+      baseURL: https://api.kilo.ai/api/gateway
+      defaultContextWindow: 262144
+      defaultMaxTokens: 32768
+      models:
+        - id: qwen/qwen3.8-max-prime
+          name: Qwen 3.8 Max Prime
+          contextWindow: 1000000
+          maxTokens: 131072
+        - id: qwen/qwen3.8-27b
+          name: Qwen 3.8 27B
+          contextWindow: 262144
+          maxTokens: 65536
+        - id: deepseek/deepseek-v4-flash-0731
+          name: DeepSeek V4 Flash
+          contextWindow: 1000000
+          maxTokens: 128000
+        - id: deepseek/deepseek-v4.1-flash
+          name: DeepSeek V4.1 Flash
+          contextWindow: 1000000
+          maxTokens: 128000
+        - id: anthropic/claude-opus-5.5
+          name: Claude Opus 5.5
+          contextWindow: 200000
+          maxTokens: 64000
+        - id: z-ai/glm-5.3
+          name: GLM 5.3
+          contextWindow: 200000
+          maxTokens: 32000
+
+ui-theme:
+  fontSize: 15
+
+subagent-model-selection:
+  enabled: true
+  allowedModels:
+    - provider: deepseek-official
+      model: deepseek-flash
+    - provider: deepseek-official
+      model: deepseek-v4-pro
+    - provider: deepseek-official
+      model: deepseek-v4-flash-vision-exp
+
+    # The orchestration split, both routes carrying all three roles.
+    - provider: cheaperinference
+      model: qwen-3-8-max
+    - provider: cheaperinference
+      model: qwen-3-8-27b
+    - provider: cheaperinference
+      model: deepseek-v4-flash
+    - provider: kilocode
+      model: qwen/qwen3.8-max-prime
+    - provider: kilocode
+      model: qwen/qwen3.8-27b
+    - provider: kilocode
+      model: deepseek/deepseek-v4-flash-0731
+
+# ── Notes ───────────────────────────────────────────────────────────────────
+#
+# WHY THE OUTPUT LIMITS ARE DECLARED
+#
+# Qwen 3.8 and DeepSeek V4 all report reasoning capability. Tested with max_tokens at 24, the two
+# Qwen models returned empty content: they spent the entire budget thinking and had nothing left
+# to answer with, while deepseek-v4-flash answered within the same budget. An empty reply from a
+# reasoning model looks like a broken route, not like a budget that was too small.
+#
+# maxTokens is a ceiling rather than an allocation, so declaring the real maximum costs nothing
+# and removes the failure. The values above are what each gateway declares in its /models
+# response, read rather than guessed: setting one above the real limit makes the API reject the
+# request.
+#
+# WHY THE ALLOWLIST MATTERS
+#
+# subagent-model-selection.allowedModels gates which routes a subagent or workflow agent may be
+# pointed at. A provider declared above but absent from this list is reachable from the session
+# but not from a workflow, which is exactly where orchestration happens. Both halves are needed.
+#
+# THE ORCHESTRATION PATTERN THIS ENABLES
+#
+#   const plan = await agent(promptPlan, { provider: 'cheaperinference', model: 'qwen-3-8-max' })
+#   const work = await parallel(tasks.map(t => () =>
+#     agent(promptWork(t), { provider: 'cheaperinference', model: 'deepseek-v4-flash' })))
+#   const verdict = await agent(promptVerdict(plan, work),
+#     { provider: 'cheaperinference', model: 'qwen-3-8-27b' })
+#
+# Verified end to end: four routes answering through DSH's own delegation, and all three roles
+# returning content rather than an empty string.
+#
+# Three properties of the workflow tool are worth knowing before relying on this. It runs in the
+# foreground, so a long orchestration blocks the turn. agent() resolves null when a child fails
+# and discards the reason, so failures are silent unless the script checks for null. And cost
+# multiplies by the number of roles, which is the opposite of what the rest of this setup does.
