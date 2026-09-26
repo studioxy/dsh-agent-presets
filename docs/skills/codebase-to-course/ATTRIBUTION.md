@@ -1,7 +1,7 @@
 # Attribution
 
 - **Source:** https://github.com/zarazhangrui/codebase-to-course
-- **Pinned commit:** `patrz ATTRIBUTION w repo`
+- **Pinned commit:** `ff8837ecf8e9f6ce9874ffa42e42633394a52a00`
 - **Licence:** see below.
 
 ## Licence status

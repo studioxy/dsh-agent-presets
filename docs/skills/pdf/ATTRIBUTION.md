@@ -2,7 +2,7 @@
 
 - **Source:** https://github.com/anthropics/skills
 - **Upstream path:** `skills/pdf`
-- **Pinned commit:** `patrz ATTRIBUTION w repo`
+- **Pinned commit:** `34040c9c568585f6929bedeaad110ad08f079624`
 - **Licence:** see below.
 
 ## Licence status
