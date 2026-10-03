@@ -32,9 +32,18 @@ console.log(`cel:       ${dest}`)
 console.log(apply ? 'tryb:      ZAPIS\n' : 'tryb:      PRÓBA (nic nie zostanie zapisane)\n')
 
 if (!existsSync(dest)) {
-  console.error(`katalog docelowy nie istnieje: ${dest}`)
-  console.error('utworz profil najpierw, np.  dsh rescue --from-default-profile web')
-  process.exit(1)
+  // A fresh machine has no profile directory. It is not created for you: the shipped profile names
+  // are acp, web, headless, sdk and sdk-minimal, and --from-default-profile refuses a shipped name
+  // as a custom target, so "dsh rescue --from-default-profile web" would make a profile called
+  // rescue rather than web. Creating the directory and writing the files is what initProfile does
+  // anyway, and this repository holds both files, so do it here.
+  if (!apply) {
+    console.log(`profil nie istnieje: ${dest}`)
+    console.log('--apply utworzy go z plikow w tym repozytorium')
+    process.exit(0)
+  }
+  console.log(`profil nie istnieje - tworze go: ${dest}`)
+  mkdirSync(dest, { recursive: true })
 }
 
 const files = readdirSync(source).filter((f) => statSync(join(source, f)).isFile())
@@ -71,15 +80,17 @@ if (!apply) {
   process.exit(0)
 }
 
-// back up before writing
+// back up before writing, but only files that actually exist
 const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
 const backup = join(dest, `.backup-${stamp}`)
-mkdirSync(backup, { recursive: true })
-for (const f of touched) {
-  const d = join(dest, f)
-  if (existsSync(d)) copyFileSync(d, join(backup, f))
+const existing = touched.filter((f) => existsSync(join(dest, f)))
+if (existing.length) {
+  mkdirSync(backup, { recursive: true })
+  for (const f of existing) copyFileSync(join(dest, f), join(backup, f))
+  console.log(`\nkopia zapasowa: ${backup}  (${existing.length} plik(ow))`)
+} else {
+  console.log('\nkopia zapasowa: niepotrzebna - nie bylo czego nadpisac')
 }
-console.log(`\nkopia zapasowa: ${backup}`)
 
 for (const f of touched) {
   copyFileSync(join(source, f), join(dest, f))

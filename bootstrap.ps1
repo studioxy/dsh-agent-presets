@@ -184,8 +184,13 @@ if (-not (Test-Path $sync)) {
     Write-Bad "brak sync-profile.mjs w $Dest"
 } elseif (-not (Test-Path $Profile)) {
     Write-Warn "profil nie istnieje: $Profile"
-    Write-Info 'utworz go najpierw:  dsh rescue --from-default-profile web'
-    Write-Info 'albo wskaz inny katalog:  -Profile <sciezka>'
+    if ($Check) {
+        Write-Info '--apply utworzy go z plikow w repozytorium'
+    } else {
+        Write-Info 'tworze go z plikow w repozytorium'
+        node $sync --dest $Profile --apply 2>&1 | ForEach-Object { Write-Info $_ }
+        Write-Ok 'profil utworzony'
+    }
 } elseif ($Check) {
     Write-Info 'tryb -Check: pokazuje roznice, nic nie zapisuje'
     node $sync --dest $Profile 2>&1 | ForEach-Object { Write-Info $_ }
