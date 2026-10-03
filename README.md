@@ -1,8 +1,8 @@
 # DSH agent presets
 
-Five task-scoped agent presets for [DeepSeek Harness](https://github.com/deepseek-ai), with every
-skill vendored at a pinned commit, the profile configuration that routes them, and the scripts that
-put the whole thing on a machine.
+Five task-scoped agent presets for DeepSeek Harness — the `@deepseek-ai/dsh` CLI — with every skill
+vendored at a pinned commit, the profile configuration that routes them, and the scripts that put the
+whole thing on a machine.
 
 | preset | skills | MCP | for |
 |---|---|---|---|
@@ -32,8 +32,10 @@ dsh web                           # then add API keys in the GUI
 
 1. **Node.js** is the only hard requirement. Everything else depends on which presets you want, and
    `bootstrap.ps1 -Check` names what is missing with the `winget` command for each.
-2. **`dsh web` once** creates `~/.dsh`. Nothing else does, and the profile directory is not created
-   for you later.
+2. **`dsh web` once** creates `~/.dsh`. Nothing else does. The profile directory itself is not created
+   for you — the shipped profile names are `acp`, `web`, `headless`, `sdk` and `sdk-minimal`, and
+   `--from-default-profile` refuses a shipped name as a custom target, so `dsh rescue
+   --from-default-profile web` would make a profile called *rescue*. Step 5 creates it instead.
 3. **Clone into `~/.dsh/.agent-presets`.** The location matters: the profile links to
    `../../.agent-presets/profile-bundles/<id>`, so a clone elsewhere needs those paths changed.
 4. **`-Check` first.** It reports and touches nothing, including the profile.
