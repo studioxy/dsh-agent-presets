@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Koszty sesji DSH</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --line: #262b36; --fg: #e6e9ef;
+    --muted: #8b93a5; --accent: #6ea8fe; --in: #4c7dd8; --out: #e0a458; --cache: #4f9e7a;
+    --warn: #e0a458;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f7f8fa; --panel:#fff; --line:#e3e6ec; --fg:#1a1d23; --muted:#6b7280; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 14px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 40px 24px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.02em; font-weight: 600; }
+  h2 { font-size: 15px; margin: 0 0 16px; color: var(--muted); font-weight: 500; letter-spacing: .02em; text-transform: uppercase; }
+  .sub { color: var(--muted); margin: 0 0 32px; font-size: 13px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 34px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; }
+  .card .k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 8px; }
+  .card .v { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .card .n { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 24px; margin-bottom: 20px; }
+  .chart { width: 100%; height: auto; display: block; }
+  .grid { stroke: var(--line); stroke-width: 1; }
+  .axis { fill: var(--muted); font-size: 11px; }
+  .line { fill: none; stroke: var(--accent); stroke-width: 2; }
+  .area { fill: var(--accent); opacity: .12; }
+  .dot { fill: var(--accent); }
+  .bar-row { display: grid; grid-template-columns: minmax(140px, 260px) 1fr 92px; gap: 12px; align-items: center; margin-bottom: 7px; }
+  .bar-label { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar-track { background: var(--line); border-radius: 4px; height: 18px; overflow: hidden; display: flex; }
+  .bar-fill { background: var(--accent); border-radius: 4px; }
+  .seg { height: 100%; }
+  .seg-in { background: var(--in); } .seg-out { background: var(--out); } .seg-cache { background: var(--cache); }
+  .bar-value { text-align: right; font-variant-numeric: tabular-nums; font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; padding: 0 10px 10px 0; border-bottom: 1px solid var(--line); }
+  td { padding: 9px 10px 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:last-child td { border-bottom: 0; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .strong { font-weight: 600; }
+  .mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .muted { color: var(--muted); }
+  .warn { color: var(--warn); cursor: help; }
+  .models { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip { background: var(--line); color: var(--muted); border-radius: 4px; padding: 1px 6px; font-size: 11px; white-space: nowrap; }
+  .legend { display: flex; gap: 18px; color: var(--muted); font-size: 12px; margin-top: 12px; flex-wrap: wrap; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  footer { color: var(--muted); font-size: 12px; margin-top: 28px; line-height: 1.7; }
+  code { background: var(--line); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Koszty sesji</h1>
+  <p class="sub">Wygenerowano 2026-10-03 11:47:58 &middot; 942 modeli w cenniku, pobrane 3 min temu &middot; zrodla: cheaperinference 75, kilocode 401, openrouter 466</p>
+
+  <div class="cards">
+    <div class="card"><div class="k">Razem</div><div class="v">$15.78</div><div class="n">wszystko wycenione</div></div>
+    <div class="card"><div class="k">Sesje</div><div class="v">39</div><div class="n">7 dni</div></div>
+    <div class="card"><div class="k">Zadania</div><div class="v">6,452</div><div class="n">wywolania modelu</div></div>
+    <div class="card"><div class="k">Tokeny</div><div class="v">2.29B</div><div class="n">20.57M in &middot; 6.06M out</div></div>
+    <div class="card"><div class="k">Cache</div><div class="v">99%</div><div class="n">2.26B odczytow</div></div>
+  </div>
+
+  <section>
+    <h2>Koszt w czasie</h2>
+    <svg viewBox="0 0 900 260" class="chart" role="img" aria-label="Koszt w czasie">
+    <line x1="70" x2="880" y1="220.0" y2="220.0" class="grid"/>
+            <text x="62" y="224.0" class="axis" text-anchor="end">$0.0000</text><line x1="70" x2="880" y1="169.0" y2="169.0" class="grid"/>
+            <text x="62" y="173.0" class="axis" text-anchor="end">$1.80</text><line x1="70" x2="880" y1="118.0" y2="118.0" class="grid"/>
+            <text x="62" y="122.0" class="axis" text-anchor="end">$3.59</text><line x1="70" x2="880" y1="67.0" y2="67.0" class="grid"/>
+            <text x="62" y="71.0" class="axis" text-anchor="end">$5.39</text><line x1="70" x2="880" y1="16.0" y2="16.0" class="grid"/>
+            <text x="62" y="20.0" class="axis" text-anchor="end">$7.19</text><path d="M70.0,209.5 L205.0,210.1 L340.0,218.8 L475.0,16.0 L610.0,184.6 L745.0,185.5 L880.0,67.5 L880.0,220 L70,220 Z" class="area"/><path d="M70.0,209.5 L205.0,210.1 L340.0,218.8 L475.0,16.0 L610.0,184.6 L745.0,185.5 L880.0,67.5" class="line"/><circle cx="70.0" cy="209.5" r="3.5" class="dot"><title>2026-09-20: $0.3691, 6 sesji</title></circle><circle cx="205.0" cy="210.1" r="3.5" class="dot"><title>2026-09-21: $0.3474, 7 sesji</title></circle><circle cx="340.0" cy="218.8" r="3.5" class="dot"><title>2026-09-26: $0.0405, 9 sesji</title></circle><circle cx="475.0" cy="16.0" r="3.5" class="dot"><title>2026-09-28: $7.19, 10 sesji</title></circle><circle cx="610.0" cy="184.6" r="3.5" class="dot"><title>2026-09-29: $1.25, 2 sesji</title></circle><circle cx="745.0" cy="185.5" r="3.5" class="dot"><title>2026-09-30: $1.21, 1 sesji</title></circle><circle cx="880.0" cy="67.5" r="3.5" class="dot"><title>2026-10-03: $5.37, 4 sesji</title></circle><text x="70.0" y="248" class="axis" text-anchor="middle">09-20</text><text x="205.0" y="248" class="axis" text-anchor="middle">09-21</text><text x="340.0" y="248" class="axis" text-anchor="middle">09-26</text><text x="475.0" y="248" class="axis" text-anchor="middle">09-28</text><text x="610.0" y="248" class="axis" text-anchor="middle">09-29</text><text x="745.0" y="248" class="axis" text-anchor="middle">09-30</text><text x="880.0" y="248" class="axis" text-anchor="middle">10-03</text></svg>
+  </section>
+
+  <section>
+    <h2>Koszt wedlug modelu</h2>
+    
+    <div class="bar-row">
+      <div class="bar-label" title="deepseek-official / deepseek-flash">deepseek-official / deepseek-flash</div>
+      <div class="bar-track"><div class="bar-fill" style="width:100.00%"></div></div>
+      <div class="bar-value">$9.50</div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label" title="deepseek-official / deepseek-v4-pro">deepseek-official / deepseek-v4-pro</div>
+      <div class="bar-track"><div class="bar-fill" style="width:37.58%"></div></div>
+      <div class="bar-value">$3.57</div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label" title="openrouter / ~z-ai/glm-flash-latest">openrouter / ~z-ai/glm-flash-latest</div>
+      <div class="bar-track"><div class="bar-fill" style="width:12.77%"></div></div>
+      <div class="bar-value">$1.21</div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label" title="cheaperinference / gpt-6-luna">cheaperinference / gpt-6-luna</div>
+      <div class="bar-track"><div class="bar-fill" style="width:7.78%"></div></div>
+      <div class="bar-value">$0.7392</div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label" title="cheaperinference / deepseek-v4.1-flash">cheaperinference / deepseek-v4.1-flash</div>
+      <div class="bar-track"><div class="bar-fill" style="width:7.22%"></div></div>
+      <div class="bar-value">$0.6862</div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label" title="cheaperinference / mimo-v2.6-pro">cheaperinference / mimo-v2.6-pro</div>
+      <div class="bar-track"><div class="bar-fill" style="width:0.37%"></div></div>
+      <div class="bar-value">$0.0354</div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label" title="cheaperinference / qwen-3-8-max">cheaperinference / qwen-3-8-max</div>
+      <div class="bar-track"><div class="bar-fill" style="width:0.19%"></div></div>
+      <div class="bar-value">$0.0181</div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label" title="kilocode / deepseek/deepseek-v4-flash-0731">kilocode / deepseek/deepseek-v4-flash-0731</div>
+      <div class="bar-track"><div class="bar-fill" style="width:0.05%"></div></div>
+      <div class="bar-value">$0.00481</div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label" title="kilocode / qwen/qwen3.8-27b">kilocode / qwen/qwen3.8-27b</div>
+      <div class="bar-track"><div class="bar-fill" style="width:0.05%"></div></div>
+      <div class="bar-value">$0.00477</div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label" title="cheaperinference / qwen-3-8-27b">cheaperinference / qwen-3-8-27b</div>
+      <div class="bar-track"><div class="bar-fill" style="width:0.04%"></div></div>
+      <div class="bar-value">$0.00334</div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-label" title="cheaperinference / deepseek-v4-flash">cheaperinference / deepseek-v4-flash</div>
+      <div class="bar-track"><div class="bar-fill" style="width:0.02%"></div></div>
+      <div class="bar-value">$0.00190</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Tokeny wedlug modelu</h2>
+    <div class="bar-row">
+      <div class="bar-label" title="deepseek-official / deepseek-flash">deepseek-official / deepseek-flash</div>
+      <div class="bar-track stacked">
+        <div class="seg seg-in" style="width:0.47%" title="input 8,480,951"></div>
+        <div class="seg seg-out" style="width:0.26%" title="output 4,674,109"></div>
+        <div class="seg seg-cache" style="width:99.28%" title="cache 1,806,937,088"></div>
+      </div>
+      <div class="bar-value">1.82B</div>
+    </div><div class="bar-row">
+      <div class="bar-label" title="cheaperinference / deepseek-v4.1-flash">cheaperinference / deepseek-v4.1-flash</div>
+      <div class="bar-track stacked">
+        <div class="seg seg-in" style="width:0.08%" title="input 1,429,148"></div>
+        <div class="seg seg-out" style="width:0.03%" title="output 569,277"></div>
+        <div class="seg seg-cache" style="width:14.95%" title="cache 272,172,160"></div>
+      </div>
+      <div class="bar-value">274.17M</div>
+    </div><div class="bar-row">
+      <div class="bar-label" title="deepseek-official / deepseek-v4-pro">deepseek-official / deepseek-v4-pro</div>
+      <div class="bar-track stacked">
+        <div class="seg seg-in" style="width:0.07%" title="input 1,260,563"></div>
+        <div class="seg seg-out" style="width:0.02%" title="output 307,261"></div>
+        <div class="seg seg-cache" style="width:5.32%" title="cache 96,796,928"></div>
+      </div>
+      <div class="bar-value">98.36M</div>
+    </div><div class="bar-row">
+      <div class="bar-label" title="cheaperinference / gpt-6-luna">cheaperinference / gpt-6-luna</div>
+      <div class="bar-track stacked">
+        <div class="seg seg-in" style="width:0.22%" title="input 3,940,897"></div>
+        <div class="seg seg-out" style="width:0.01%" title="output 224,250"></div>
+        <div class="seg seg-cache" style="width:3.47%" title="cache 63,102,368"></div>
+      </div>
+      <div class="bar-value">67.27M</div>
+    </div><div class="bar-row">
+      <div class="bar-label" title="openrouter / ~z-ai/glm-flash-latest">openrouter / ~z-ai/glm-flash-latest</div>
+      <div class="bar-track stacked">
+        <div class="seg seg-in" style="width:0.29%" title="input 5,297,215"></div>
+        <div class="seg seg-out" style="width:0.02%" title="output 280,051"></div>
+        <div class="seg seg-cache" style="width:1.39%" title="cache 25,349,954"></div>
+      </div>
+      <div class="bar-value">30.93M</div>
+    </div><div class="bar-row">
+      <div class="bar-label" title="cheaperinference / mimo-v2.6-pro">cheaperinference / mimo-v2.6-pro</div>
+      <div class="bar-track stacked">
+        <div class="seg seg-in" style="width:0.00%" title="input 87,010"></div>
+        <div class="seg seg-out" style="width:0.00%" title="output 4,346"></div>
+        <div class="seg seg-cache" style="width:0.00%" title="cache 0"></div>
+      </div>
+      <div class="bar-value">91.4K</div>
+    </div><div class="bar-row">
+      <div class="bar-label" title="cheaperinference / qwen-3-8-27b">cheaperinference / qwen-3-8-27b</div>
+      <div class="bar-track stacked">
+        <div class="seg seg-in" style="width:0.00%" title="input 22,199"></div>
+        <div class="seg seg-out" style="width:0.00%" title="output 152"></div>
+        <div class="seg seg-cache" style="width:0.00%" title="cache 0"></div>
+      </div>
+      <div class="bar-value">22.4K</div>
+    </div><div class="bar-row">
+      <div class="bar-label" title="cheaperinference / deepseek-v4-flash">cheaperinference / deepseek-v4-flash</div>
+      <div class="bar-track stacked">
+        <div class="seg seg-in" style="width:0.00%" title="input 20,893"></div>
+        <div class="seg seg-out" style="width:0.00%" title="output 61"></div>
+        <div class="seg seg-cache" style="width:0.00%" title="cache 1,024"></div>
+      </div>
+      <div class="bar-value">22.0K</div>
+    </div><div class="bar-row">
+      <div class="bar-label" title="cheaperinference / qwen-3-8-max">cheaperinference / qwen-3-8-max</div>
+      <div class="bar-track stacked">
+        <div class="seg seg-in" style="width:0.00%" title="input 11,009"></div>
+        <div class="seg seg-out" style="width:0.00%" title="output 39"></div>
+        <div class="seg seg-cache" style="width:0.00%" title="cache 0"></div>
+      </div>
+      <div class="bar-value">11.0K</div>
+    </div><div class="bar-row">
+      <div class="bar-label" title="kilocode / qwen/qwen3.8-27b">kilocode / qwen/qwen3.8-27b</div>
+      <div class="bar-track stacked">
+        <div class="seg seg-in" style="width:0.00%" title="input 11,003"></div>
+        <div class="seg seg-out" style="width:0.00%" title="output 37"></div>
+        <div class="seg seg-cache" style="width:0.00%" title="cache 0"></div>
+      </div>
+      <div class="bar-value">11.0K</div>
+    </div><div class="bar-row">
+      <div class="bar-label" title="kilocode / deepseek/deepseek-v4-flash-0731">kilocode / deepseek/deepseek-v4-flash-0731</div>
+      <div class="bar-track stacked">
+        <div class="seg seg-in" style="width:0.00%" title="input 10,882"></div>
+        <div class="seg seg-out" style="width:0.00%" title="output 19"></div>
+        <div class="seg seg-cache" style="width:0.00%" title="cache 0"></div>
+      </div>
+      <div class="bar-value">10.9K</div>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--in)"></i>input (cache miss)</span>
+      <span><i style="background:var(--out)"></i>output</span>
+      <span><i style="background:var(--cache)"></i>cache (hit)</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Sesje</h2>
+    <table>
+      <thead><tr><th>Czas</th><th>Workspace</th><th class="num">Tury</th><th class="num">Kroki</th><th class="num">Tokeny</th><th class="num">Koszt</th><th>Modele</th></tr></thead>
+      <tbody><tr>
+      <td class="mono">2026-10-03 11:47</td>
+      <td>D-import road dashboard-Energy BU Logistics</td>
+      <td class="num">108</td>
+      <td class="num">1370</td>
+      <td class="num">639.00M</td>
+      <td class="num strong">$2.73</td>
+      <td class="models"><span class="chip" title="983 zadan">deepseek-flash</span><span class="chip" title="361 zadan">deepseek-v4.1-flash</span><span class="chip" title="22 zadan">gpt-6-luna</span></td>
+    </tr><tr>
+      <td class="mono">2026-10-03 11:19</td>
+      <td>D-import road dashboard-Energy BU Logistics</td>
+      <td class="num">101</td>
+      <td class="num">1302</td>
+      <td class="num">599.61M</td>
+      <td class="num strong">$2.61</td>
+      <td class="models"><span class="chip" title="983 zadan">deepseek-flash</span><span class="chip" title="293 zadan">deepseek-v4.1-flash</span><span class="chip" title="22 zadan">gpt-6-luna</span></td>
+    </tr><tr>
+      <td class="mono">2026-10-03 08:03</td>
+      <td>D-import road dashboard-Energy BU Logistics</td>
+      <td class="num">2</td>
+      <td class="num">70</td>
+      <td class="num">7.42M</td>
+      <td class="num strong">$0.0366</td>
+      <td class="models"><span class="chip" title="70 zadan">deepseek-v4.1-flash</span></td>
+    </tr><tr>
+      <td class="mono">2026-10-03 06:46</td>
+      <td>D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td class="num strong">$0.0000</td>
+      <td class="models"></td>
+    </tr><tr>
+      <td class="mono">2026-09-30 06:58</td>
+      <td>D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia</td>
+      <td class="num">11</td>
+      <td class="num">485</td>
+      <td class="num">199.56M</td>
+      <td class="num strong">$1.21</td>
+      <td class="models"><span class="chip" title="291 zadan">deepseek-flash</span><span class="chip" title="191 zadan">gpt-6-luna</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-29 22:01</td>
+      <td>D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia</td>
+      <td class="num">1</td>
+      <td class="num">59</td>
+      <td class="num">8.78M</td>
+      <td class="num strong">$0.1217</td>
+      <td class="models"><span class="chip" title="58 zadan">gpt-6-luna</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-29 21:37</td>
+      <td>D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia</td>
+      <td class="num">13</td>
+      <td class="num">370</td>
+      <td class="num">29.26M</td>
+      <td class="num strong">$1.13</td>
+      <td class="models"><span class="chip" title="368 zadan">~z-ai/glm-flash-latest</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-28 22:10</td>
+      <td>D-prog-pf advisor</td>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="num">0</td>
+      <td class="num strong">$0.0000</td>
+      <td class="models"></td>
+    </tr><tr>
+      <td class="mono">2026-09-28 21:30</td>
+      <td>D-prog-pf advisor</td>
+      <td class="num">2</td>
+      <td class="num">39</td>
+      <td class="num">1.57M</td>
+      <td class="num strong">$0.0238</td>
+      <td class="models"><span class="chip" title="39 zadan">deepseek-flash</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-28 21:10</td>
+      <td>D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia</td>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="num">0</td>
+      <td class="num strong">$0.0000</td>
+      <td class="models"></td>
+    </tr><tr>
+      <td class="mono">2026-09-28 21:10</td>
+      <td>D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia</td>
+      <td class="num">46</td>
+      <td class="num">1099</td>
+      <td class="num">434.76M</td>
+      <td class="num strong">$4.03</td>
+      <td class="models"><span class="chip" title="149 zadan">deepseek-v4-pro</span><span class="chip" title="949 zadan">deepseek-flash</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-28 21:02</td>
+      <td>D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia</td>
+      <td class="num">9</td>
+      <td class="num">380</td>
+      <td class="num">149.12M</td>
+      <td class="num strong">$2.12</td>
+      <td class="models"><span class="chip" title="64 zadan">deepseek-v4-pro</span><span class="chip" title="316 zadan">deepseek-flash</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-28 20:57</td>
+      <td>D-import road dashboard-Energy BU Logistics</td>
+      <td class="num">4</td>
+      <td class="num">68</td>
+      <td class="num">2.85M</td>
+      <td class="num strong">$0.1460</td>
+      <td class="models"><span class="chip" title="50 zadan">~z-ai/glm-flash-latest</span><span class="chip" title="1 zadan">mimo-v2.6-pro</span><span class="chip" title="16 zadan">deepseek-flash</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-28 20:41</td>
+      <td>D-orch</td>
+      <td class="num">2</td>
+      <td class="num">274</td>
+      <td class="num">63.25M</td>
+      <td class="num strong">$0.3118</td>
+      <td class="models"><span class="chip" title="273 zadan">deepseek-flash</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-28 19:13</td>
+      <td>D-prog-pf advisor</td>
+      <td class="num">9</td>
+      <td class="num">334</td>
+      <td class="num">94.59M</td>
+      <td class="num strong">$0.5497</td>
+      <td class="models"><span class="chip" title="334 zadan">deepseek-flash</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-28 16:07</td>
+      <td>D-prog-pf advisor</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td class="num strong">$0.0000</td>
+      <td class="models"></td>
+    </tr><tr>
+      <td class="mono">2026-09-28 15:43</td>
+      <td>D-orch</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td class="num">0</td>
+      <td class="num strong">$0.0000</td>
+      <td class="models"></td>
+    </tr><tr>
+      <td class="mono">2026-09-26 13:50</td>
+      <td>D-import road dashboard-Energy BU Logistics</td>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="num">11.1K</td>
+      <td class="num strong">$0.00175</td>
+      <td class="models"><span class="chip" title="1 zadan">qwen-3-8-27b</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-26 13:50</td>
+      <td>D-import road dashboard-Energy BU Logistics</td>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="num">11.0K</td>
+      <td class="num strong">$0.0181</td>
+      <td class="models"><span class="chip" title="1 zadan">qwen-3-8-max</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-26 13:50</td>
+      <td>D-import road dashboard-Energy BU Logistics</td>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="num">11.1K</td>
+      <td class="num strong">$0.00101</td>
+      <td class="models"><span class="chip" title="1 zadan">deepseek-v4-flash</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-26 13:45</td>
+      <td>D-import road dashboard-Energy BU Logistics</td>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="num">10.9K</td>
+      <td class="num strong">$0.00089</td>
+      <td class="models"><span class="chip" title="1 zadan">deepseek-v4-flash</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-26 13:44</td>
+      <td>D-import road dashboard-Energy BU Logistics</td>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="num">11.2K</td>
+      <td class="num strong">$0.00159</td>
+      <td class="models"><span class="chip" title="1 zadan">qwen-3-8-27b</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-26 13:44</td>
+      <td>D-import road dashboard-Energy BU Logistics</td>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="num">11.0K</td>
+      <td class="num strong">$0.00477</td>
+      <td class="models"><span class="chip" title="1 zadan">qwen/qwen3.8-27b</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-26 13:44</td>
+      <td>D-import road dashboard-Energy BU Logistics</td>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="num">10.9K</td>
+      <td class="num strong">$0.00481</td>
+      <td class="models"><span class="chip" title="1 zadan">deepseek/deepseek-v4-flash-0731</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-26 13:31</td>
+      <td>D-import road dashboard-Energy BU Logistics</td>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="num">10.9K</td>
+      <td class="num strong">$0.00041</td>
+      <td class="models"><span class="chip" title="1 zadan">deepseek-flash</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-26 13:31</td>
+      <td>D-import road dashboard-Energy BU Logistics</td>
+      <td class="num">1</td>
+      <td class="num">1</td>
+      <td class="num">10.9K</td>
+      <td class="num strong">$0.00723</td>
+      <td class="models"><span class="chip" title="1 zadan">deepseek-v4-pro</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-21 18:17</td>
+      <td>D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia</td>
+      <td class="num">1</td>
+      <td class="num">70</td>
+      <td class="num">5.31M</td>
+      <td class="num strong">$0.0463</td>
+      <td class="models"><span class="chip" title="69 zadan">deepseek-flash</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-21 18:17</td>
+      <td>D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia</td>
+      <td class="num">1</td>
+      <td class="num">27</td>
+      <td class="num">2.81M</td>
+      <td class="num strong">$0.0622</td>
+      <td class="models"><span class="chip" title="26 zadan">deepseek-flash</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-21 17:43</td>
+      <td>D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia</td>
+      <td class="num">1</td>
+      <td class="num">53</td>
+      <td class="num">5.54M</td>
+      <td class="num strong">$0.0594</td>
+      <td class="models"><span class="chip" title="53 zadan">deepseek-flash</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-21 17:43</td>
+      <td>D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia</td>
+      <td class="num">2</td>
+      <td class="num">45</td>
+      <td class="num">4.13M</td>
+      <td class="num strong">$0.0505</td>
+      <td class="models"><span class="chip" title="45 zadan">deepseek-flash</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-21 17:39</td>
+      <td>D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia</td>
+      <td class="num">1</td>
+      <td class="num">32</td>
+      <td class="num">1.97M</td>
+      <td class="num strong">$0.0193</td>
+      <td class="models"><span class="chip" title="32 zadan">deepseek-flash</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-21 17:39</td>
+      <td>D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia</td>
+      <td class="num">1</td>
+      <td class="num">15</td>
+      <td class="num">1.01M</td>
+      <td class="num strong">$0.0138</td>
+      <td class="models"><span class="chip" title="15 zadan">deepseek-flash</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-21 14:28</td>
+      <td>D-import road dashboard-Energy BU Logistics</td>
+      <td class="num">1</td>
+      <td class="num">82</td>
+      <td class="num">9.98M</td>
+      <td class="num strong">$0.0960</td>
+      <td class="models"><span class="chip" title="82 zadan">deepseek-flash</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-20 17:30</td>
+      <td>D-prog-cmr</td>
+      <td class="num">1</td>
+      <td class="num">97</td>
+      <td class="num">9.52M</td>
+      <td class="num strong">$0.0801</td>
+      <td class="models"><span class="chip" title="97 zadan">deepseek-flash</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-20 10:34</td>
+      <td>D-import road dashboard-Energy BU Logistics</td>
+      <td class="num">1</td>
+      <td class="num">13</td>
+      <td class="num">906.9K</td>
+      <td class="num strong">$0.0426</td>
+      <td class="models"><span class="chip" title="13 zadan">deepseek-flash</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-20 10:34</td>
+      <td>D-import road dashboard-Energy BU Logistics</td>
+      <td class="num">1</td>
+      <td class="num">8</td>
+      <td class="num">462.6K</td>
+      <td class="num strong">$0.0329</td>
+      <td class="models"><span class="chip" title="8 zadan">deepseek-flash</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-20 10:31</td>
+      <td>D-import road dashboard-Energy BU Logistics</td>
+      <td class="num">1</td>
+      <td class="num">6</td>
+      <td class="num">267.9K</td>
+      <td class="num strong">$0.0164</td>
+      <td class="models"><span class="chip" title="6 zadan">deepseek-flash</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-20 08:23</td>
+      <td>D-prog-cmr</td>
+      <td class="num">5</td>
+      <td class="num">142</td>
+      <td class="num">18.03M</td>
+      <td class="num strong">$0.1627</td>
+      <td class="models"><span class="chip" title="142 zadan">deepseek-flash</span></td>
+    </tr><tr>
+      <td class="mono">2026-09-20 01:35</td>
+      <td>D-prog-cmr</td>
+      <td class="num">1</td>
+      <td class="num">22</td>
+      <td class="num">1.19M</td>
+      <td class="num strong">$0.0345</td>
+      <td class="models"><span class="chip" title="22 zadan">deepseek-flash</span></td>
+    </tr></tbody>
+    </table>
+  </section>
+
+  <footer>
+    <p><strong>Skad te liczby.</strong> Z trwalego logu sesji, tego samego ktory czyta okno statystyk w GUI.
+    Nie ma tam wiersza kosztu i zaden sie nie da wlaczyc: harness zna pole <code>cost</code>, ale nic go nie
+    wypelnia i nic nie czyta. Ten raport wycenia log po stawkach, ktore gatewaye faktycznie licza.</p>
+    <p><strong>Model.</strong> Kazda wiadomosc nosi zuzycie, ale nie nazwy modelu, wiec brany jest
+    <code>config</code> z najblizszego wczesniejszego <code>request/header</code>. Sesja, ktora zmieniala modele,
+    jest wyceniona per zadanie, a nie jedna stawka.</p>
+    <p><strong>Cache.</strong> <code>totalTokens = input + output + cacheRead</code>, czyli
+    <code>inputTokens</code> nie zawiera odczytow z cache i trzy pozycje rozliczaja sie osobno.</p>
+    <p><strong>Nadpisania.</strong> 4 model(i) wycenione z <code>prices.json</code>, bo zaden gateway ich nie podaje.</p>
+    <p>Wygenerowane przez <code>session-cost.mjs --html</code>. Plik jest samowystarczalny: otwiera sie offline, bez sieci i bez bibliotek.</p>
+  </footer>
+
+</div>
+<script type="application/json" id="data">{"generatedAt":"2026-10-03 11:47:58","prices":{"count":942,"age":"3 min temu","sources":"cheaperinference 75, kilocode 401, openrouter 466"},"overrides":4,"sessions":[{"id":"session-590deb84-65fd-4881-8c02-d473b256428f","workspace":"D-import road dashboard-Energy BU Logistics","mtime":1791028076575.7036,"turns":108,"steps":1370,"byModel":{"deepseek-official / deepseek-flash":{"requests":983,"input":1800117,"output":953649,"cache":478393344,"reasoning":415497,"cost":2.277386981999999,"priced":true,"sources":["prices.json (off-peak)"]},"cheaperinference / gpt-6-luna":{"requests":22,"input":430129,"output":26485,"cache":4327617,"reasoning":0,"cost":0.0646955205,"priced":true,"sources":["cheaperinference"]},"cheaperinference / deepseek-v4.1-flash":{"requests":361,"input":973968,"output":285006,"cache":151814016,"reasoning":0,"cost":0.38627042400000017,"priced":true,"sources":["cheaperinference"]}}},{"id":"session-3a4a101c-c61b-4941-9531-ebd899920b50","workspace":"D-import road dashboard-Energy BU Logistics","mtime":1791026342539.1252,"turns":101,"steps":1302,"byModel":{"deepseek-official / deepseek-flash":{"requests":983,"input":1800117,"output":953649,"cache":478393344,"reasoning":415497,"cost":2.277386981999999,"priced":true,"sources":["prices.json (off-peak)"]},"cheaperinference / gpt-6-luna":{"requests":22,"input":430129,"output":26485,"cache":4327617,"reasoning":0,"cost":0.0646955205,"priced":true,"sources":["cheaperinference"]},"cheaperinference / deepseek-v4.1-flash":{"requests":293,"input":342413,"output":226763,"cache":113108480,"reasoning":0,"cost":0.26337259500000026,"priced":true,"sources":["cheaperinference"]}}},{"id":"session-2af77994-f5be-4bed-b81a-aba4eba0339f","workspace":"D-import road dashboard-Energy BU Logistics","mtime":1791014623440.2283,"turns":2,"steps":70,"byModel":{"cheaperinference / deepseek-v4.1-flash":{"requests":70,"input":112767,"output":57508,"cache":7249664,"reasoning":0,"cost":0.036584421,"priced":true,"sources":["cheaperinference"]}}},{"id":"session-f04e88f5-dcf4-49c0-bb7c-7e64e448d1bb","workspace":"D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia","mtime":1791010018232.9355,"turns":0,"steps":0,"byModel":{}},{"id":"session-b59d0d17-6105-4226-b6a0-c0675c0d1f1d","workspace":"D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia","mtime":1790751490401.2332,"turns":11,"steps":485,"byModel":{"cheaperinference / gpt-6-luna":{"requests":191,"input":2490564,"output":76703,"cache":46356580,"reasoning":0,"cost":0.48813290499999973,"priced":true,"sources":["cheaperinference"]},"deepseek-official / deepseek-flash":{"requests":291,"input":981209,"output":215600,"cache":149440768,"reasoning":0,"cost":0.7267107839999998,"priced":true,"sources":["prices.json (off-peak)","prices.json (peak)"]}}},{"id":"40444dbb-e1bb-463f-8181-32002026208a","workspace":"D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia","mtime":1790719274376.9453,"turns":1,"steps":59,"byModel":{"cheaperinference / gpt-6-luna":{"requests":58,"input":590075,"output":94577,"cache":8090554,"reasoning":0,"cost":0.12168100099999998,"priced":true,"sources":["cheaperinference"]}}},{"id":"session-f9dd9cba-96eb-4276-baaf-35c081f8e49c","workspace":"D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia","mtime":1790717845039.376,"turns":13,"steps":370,"byModel":{"openrouter / ~z-ai/glm-flash-latest":{"requests":368,"input":4788497,"output":220226,"cache":24246922,"reasoning":0,"cost":1.126352665,"priced":true,"sources":["openrouter"]}}},{"id":"session-e903d08a-1b5e-4778-b6a2-9848a13cb163","workspace":"D-prog-pf advisor","mtime":1790633454830.1338,"turns":1,"steps":1,"byModel":{}},{"id":"session-87162fb8-a7b1-45f5-9c72-70af6f90d46c","workspace":"D-prog-pf advisor","mtime":1790631030574.4028,"turns":2,"steps":39,"byModel":{"deepseek-official / deepseek-flash":{"requests":39,"input":49295,"output":19842,"cache":1504384,"reasoning":10507,"cost":0.023812601999999992,"priced":true,"sources":["prices.json (off-peak)"]}}},{"id":"session-76648cc2-4b7f-4c38-9f2a-d06b1f2434c6","workspace":"D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia","mtime":1790629856089.1726,"turns":1,"steps":1,"byModel":{}},{"id":"session-9cc171ef-7f47-4a53-a0c4-36eeb9596e58","workspace":"D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia","mtime":1790629851515.2986,"turns":46,"steps":1099,"byModel":{"deepseek-official / deepseek-flash":{"requests":949,"input":1198551,"output":1047084,"cache":374158976,"reasoning":688017,"cost":1.9305099779999995,"priced":true,"sources":["prices.json (off-peak)"]},"deepseek-official / deepseek-v4-pro":{"requests":149,"input":697340,"output":190532,"cache":57465344,"reasoning":129299,"cost":2.101735328,"priced":true,"sources":["prices.json (off-peak)"]}}},{"id":"session-2557d463-5657-4e93-bf61-379321655807","workspace":"D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia","mtime":1790629341148.67,"turns":9,"steps":380,"byModel":{"deepseek-official / deepseek-flash":{"requests":316,"input":956350,"output":323107,"cache":107840896,"reasoning":130967,"cost":0.6608393879999999,"priced":true,"sources":["prices.json (off-peak)"]},"deepseek-official / deepseek-v4-pro":{"requests":64,"input":552286,"output":116725,"cache":39331584,"reasoning":38446,"cost":1.4609191080000004,"priced":true,"sources":["prices.json (off-peak)"]}}},{"id":"session-dbbc1077-19ff-43a3-bc32-717d4fc7c784","workspace":"D-import road dashboard-Energy BU Logistics","mtime":1790629065393.0728,"turns":4,"steps":68,"byModel":{"openrouter / ~z-ai/glm-flash-latest":{"requests":50,"input":508718,"output":59825,"cache":1103032,"reasoning":0,"cost":0.08632375000000002,"priced":true,"sources":["openrouter"]},"deepseek-official / deepseek-flash":{"requests":16,"input":71187,"output":17722,"cache":1000320,"reasoning":0,"cost":0.024312209999999997,"priced":true,"sources":["prices.json (off-peak)"]},"cheaperinference / mimo-v2.6-pro":{"requests":1,"input":87010,"output":4346,"cache":0,"reasoning":0,"cost":0.03538581450000001,"priced":true,"sources":["cheaperinference"]}}},{"id":"session-3e49dfb3-030e-4eb1-b3cc-dace3c1f78e9","workspace":"D-orch","mtime":1790628095911.0532,"turns":2,"steps":274,"byModel":{"deepseek-official / deepseek-flash":{"requests":273,"input":219566,"output":150288,"cache":62883712,"reasoning":57221,"cost":0.3117588360000002,"priced":true,"sources":["prices.json (off-peak)"]}}},{"id":"session-65ad6888-ea95-4b65-abbe-5d942a82fb45","workspace":"D-prog-pf advisor","mtime":1790622785098.5105,"turns":9,"steps":334,"byModel":{"deepseek-official / deepseek-flash":{"requests":334,"input":518605,"output":317757,"cache":93756288,"reasoning":118484,"cost":0.5497138140000001,"priced":true,"sources":["prices.json (off-peak)"]}}},{"id":"session-01a10373-c70e-4081-841b-7dedca4f6964","workspace":"D-prog-pf advisor","mtime":1790611630847.4507,"turns":0,"steps":0,"byModel":{}},{"id":"session-879579ed-52b0-4bdb-824e-74621af06491","workspace":"D-orch","mtime":1790610195032.7654,"turns":0,"steps":0,"byModel":{}},{"id":"5f86061c-c994-45be-9612-9d4655590d0d","workspace":"D-import road dashboard-Energy BU Logistics","mtime":1790430659829.4077,"turns":1,"steps":1,"byModel":{"cheaperinference / qwen-3-8-27b":{"requests":1,"input":11011,"output":132,"cache":0,"reasoning":0,"cost":0.0017504201,"priced":true,"sources":["cheaperinference"]}}},{"id":"5258f522-6824-411a-a39c-e126fc88dbce","workspace":"D-import road dashboard-Energy BU Logistics","mtime":1790430652080.4397,"turns":1,"steps":1,"byModel":{"cheaperinference / qwen-3-8-max":{"requests":1,"input":11009,"output":39,"cache":0,"reasoning":0,"cost":0.01807975,"priced":true,"sources":["cheaperinference"]}}},{"id":"5c7ef54f-af0e-4ac0-bf78-9d3a3608ef8f","workspace":"D-import road dashboard-Energy BU Logistics","mtime":1790430651818.8792,"turns":1,"steps":1,"byModel":{"cheaperinference / deepseek-v4-flash":{"requests":1,"input":11069,"output":47,"cache":0,"reasoning":0,"cost":0.0010131299999999999,"priced":true,"sources":["cheaperinference"]}}},{"id":"65e045e5-4a2d-47da-8cd8-3fdd8fb0bbcc","workspace":"D-import road dashboard-Energy BU Logistics","mtime":1790430305304.2478,"turns":1,"steps":1,"byModel":{"cheaperinference / deepseek-v4-flash":{"requests":1,"input":9824,"output":14,"cache":1024,"reasoning":0,"cost":0.0008910432,"priced":true,"sources":["cheaperinference"]}}},{"id":"8e49b9fe-1eec-46c3-aea0-3455f969931e","workspace":"D-import road dashboard-Energy BU Logistics","mtime":1790430297906.4138,"turns":1,"steps":1,"byModel":{"cheaperinference / qwen-3-8-27b":{"requests":1,"input":11188,"output":20,"cache":0,"reasoning":0,"cost":0.0015894008,"priced":true,"sources":["cheaperinference"]}}},{"id":"3080e226-5ac9-46de-af23-46b1b55ad7ca","workspace":"D-import road dashboard-Energy BU Logistics","mtime":1790430297642.5684,"turns":1,"steps":1,"byModel":{"kilocode / qwen/qwen3.8-27b":{"requests":1,"input":11003,"output":37,"cache":0,"reasoning":0,"cost":0.004770625,"priced":true,"sources":["kilocode"]}}},{"id":"2811dab2-a2b0-4ca3-a418-f8fc41026a08","workspace":"D-import road dashboard-Energy BU Logistics","mtime":1790430295329.9482,"turns":1,"steps":1,"byModel":{"kilocode / deepseek/deepseek-v4-flash-0731":{"requests":1,"input":10882,"output":19,"cache":0,"reasoning":0,"cost":0.00481316,"priced":true,"sources":["kilocode"]}}},{"id":"32bf443f-df25-40f1-b882-cf945186e570","workspace":"D-import road dashboard-Energy BU Logistics","mtime":1790429493410.1252,"turns":1,"steps":1,"byModel":{"deepseek-official / deepseek-flash":{"requests":1,"input":2553,"output":5,"cache":8320,"reasoning":0,"cost":0.00041090999999999995,"priced":true,"sources":["prices.json (off-peak)"]}}},{"id":"965b1ca5-e9a6-4c8c-91cf-cdd465bbf4dd","workspace":"D-import road dashboard-Energy BU Logistics","mtime":1790429492204.2346,"turns":1,"steps":1,"byModel":{"deepseek-official / deepseek-v4-pro":{"requests":1,"input":10937,"output":4,"cache":0,"reasoning":0,"cost":0.00722634,"priced":true,"sources":["prices.json (off-peak)"]}}},{"id":"56857709-ec2e-4fa8-980d-b908e5cd012f","workspace":"D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia","mtime":1790014662130.3064,"turns":1,"steps":70,"byModel":{"deepseek-official / deepseek-flash":{"requests":69,"input":101613,"output":25754,"cache":5186560,"reasoning":3440,"cost":0.04625403,"priced":true,"sources":["prices.json (off-peak)"]}}},{"id":"24f43a21-73ff-4564-8f76-1981522f26b2","workspace":"D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia","mtime":1790014662107.782,"turns":1,"steps":27,"byModel":{"deepseek-official / deepseek-flash":{"requests":26,"input":113652,"output":62065,"cache":2629760,"reasoning":12626,"cost":0.062176079999999995,"priced":true,"sources":["prices.json (off-peak)"]}}},{"id":"9f85ec58-bba7-42f5-b7c1-bb609d90c1e6","workspace":"D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia","mtime":1790012592407.354,"turns":1,"steps":53,"byModel":{"deepseek-official / deepseek-flash":{"requests":53,"input":58732,"output":57192,"cache":5422976,"reasoning":42093,"cost":0.05939392800000002,"priced":true,"sources":["prices.json (off-peak)"]}}},{"id":"0571f8f8-d582-40b8-a9e8-07b0b552666d","workspace":"D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia","mtime":1790012587924.2097,"turns":2,"steps":45,"byModel":{"deepseek-official / deepseek-flash":{"requests":45,"input":48379,"output":51835,"cache":4030976,"reasoning":38624,"cost":0.05045077799999999,"priced":true,"sources":["prices.json (off-peak)"]}}},{"id":"634ad605-a0f6-461a-bbc0-5bc32777c467","workspace":"D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia","mtime":1790012399686.3457,"turns":1,"steps":32,"byModel":{"deepseek-official / deepseek-flash":{"requests":32,"input":37408,"output":13301,"cache":1918592,"reasoning":4238,"cost":0.019347576,"priced":true,"sources":["prices.json (off-peak)"]}}},{"id":"a38f38eb-619d-4f82-abf6-0302dcded454","workspace":"D-import road dashboard ~2014 kopia-Energy BU Logistics ~2014 kopia","mtime":1790012354717.3176,"turns":1,"steps":15,"byModel":{"deepseek-official / deepseek-flash":{"requests":15,"input":45394,"output":6840,"cache":955520,"reasoning":2636,"cost":0.013779659999999999,"priced":true,"sources":["prices.json (off-peak)"]}}},{"id":"session-ccfb2e3a-d13d-4bb3-bd12-ef11e1160b56","workspace":"D-import road dashboard-Energy BU Logistics","mtime":1790000933159.4026,"turns":1,"steps":82,"byModel":{"deepseek-official / deepseek-flash":{"requests":82,"input":105794,"output":84558,"cache":9788288,"reasoning":50993,"cost":0.09596876400000003,"priced":true,"sources":["prices.json (off-peak)"]}}},{"id":"session-97555d1e-2498-4a47-b71f-b4fe3925ead6","workspace":"D-prog-cmr","mtime":1789925455835.4243,"turns":1,"steps":97,"byModel":{"deepseek-official / deepseek-flash":{"requests":97,"input":91672,"output":63742,"cache":9360000,"reasoning":39606,"cost":0.080076,"priced":true,"sources":["prices.json (off-peak)"]}}},{"id":"c54ddcbb-2812-4244-a5f9-9538c2932444","workspace":"D-import road dashboard-Energy BU Logistics","mtime":1789900486935.4304,"turns":1,"steps":13,"byModel":{"deepseek-official / deepseek-flash":{"requests":13,"input":50127,"output":54478,"cache":802304,"reasoning":44576,"cost":0.042612762000000005,"priced":true,"sources":["prices.json (off-peak)"]}}},{"id":"e301ac6c-dec9-4f2b-9826-305e6e0b1022","workspace":"D-import road dashboard-Energy BU Logistics","mtime":1789900448943.0042,"turns":1,"steps":8,"byModel":{"deepseek-official / deepseek-flash":{"requests":8,"input":36389,"output":43747,"cache":382464,"reasoning":35644,"cost":0.032853942000000004,"priced":true,"sources":["prices.json (off-peak)"]}}},{"id":"58852446-194f-490d-8c75-1d5819482763","workspace":"D-import road dashboard-Energy BU Logistics","mtime":1789900313712.3396,"turns":1,"steps":6,"byModel":{"deepseek-official / deepseek-flash":{"requests":6,"input":45097,"output":14940,"cache":207872,"reasoning":10687,"cost":0.016352165999999998,"priced":true,"sources":["prices.json (off-peak)"]}}},{"id":"session-d07b43ae-ed33-426a-8563-e4a2c70b38af","workspace":"D-prog-cmr","mtime":1789892592341.881,"turns":5,"steps":142,"byModel":{"deepseek-official / deepseek-flash":{"requests":142,"input":105926,"output":155783,"cache":17765760,"reasoning":89419,"cost":0.16265598,"priced":true,"sources":["prices.json (off-peak)"]}}},{"id":"1be11ee4-f1c0-4083-a00f-68e4349ce32e","workspace":"D-prog-cmr","mtime":1789868136498.8633,"turns":1,"steps":22,"byModel":{"deepseek-official / deepseek-flash":{"requests":22,"input":43218,"output":41171,"cache":1105664,"reasoning":25301,"cost":0.034502292000000004,"priced":true,"sources":["prices.json (off-peak)"]}}}]}</script>
+</body>
+</html>

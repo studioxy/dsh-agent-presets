@@ -261,7 +261,7 @@ const overrides = loadOverrides()
 const priceCount = Object.keys(prices).length
 
 let targets
-if (flag('--all')) targets = sessionDirs()
+if (flag('--all') || flag('--html')) targets = sessionDirs()
 else if (value('--session')) {
   const needle = value('--session')
   const found = sessionDirs().filter((s) => s.id === needle || s.id.includes(needle) || s.workspace.includes(needle))
@@ -282,6 +282,37 @@ if (flag('--json')) {
 }
 
 const ageH = pricePayload.fetchedAt ? (Date.now() - pricePayload.fetchedAt) / 3600000 : null
+if (flag('--html')) {
+  const { render } = await import('./cost-dashboard.mjs')
+  const i = argv.indexOf('--html')
+  const next = argv[i + 1]
+  const out = next && !next.startsWith('--') ? next : join(import.meta.dirname, 'cost-dashboard.html')
+
+  const ageMin = pricePayload.fetchedAt ? Math.round((Date.now() - pricePayload.fetchedAt) / 60000) : null
+  const html = render({
+    generatedAt: new Date().toISOString().slice(0, 19).replace('T', ' '),
+    prices: {
+      count: priceCount,
+      age: ageMin === null ? 'nieznany' : ageMin < 60 ? `${ageMin} min temu` : `${(ageMin / 60).toFixed(1)} h temu`,
+      sources: (pricePayload.sources ?? []).join(', ') || 'prices.json tylko',
+    },
+    overrides: Object.keys(overrides).filter((k) => !k.startsWith('_')).length || null,
+    sessions: results.map((r) => ({
+      id: r.id, workspace: r.workspace, mtime: r.mtime, turns: r.turns, steps: r.steps,
+      // a Set does not survive JSON.stringify, so flatten it here rather than shipping `{}`
+      byModel: Object.fromEntries([...r.byModel].map(([k, a]) => [k, {
+        requests: a.requests, input: a.input, output: a.output, cache: a.cache,
+        reasoning: a.reasoning, cost: a.cost, priced: a.priced,
+        sources: [...(a.sources ?? [])],
+      }])),
+    })),
+  })
+  writeFileSync(out, html, 'utf8')
+  console.log(`zapisano: ${out}`)
+  console.log(`${(html.length / 1024).toFixed(1)} KB, ${results.length} sesji, samowystarczalny (bez sieci i bibliotek)`)
+  process.exit(0)
+}
+
 console.log(
   `ceny: ${fmt(priceCount)} modeli` +
   (ageH !== null ? `, pobrane ${ageH < 1 ? `${Math.round(ageH * 60)} min` : `${ageH.toFixed(1)} h`} temu` : '') +
