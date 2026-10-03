@@ -1,6 +1,6 @@
 # Reproducing these agent presets in another environment
 
-Three task-scoped agent presets for DeepSeek Harness. This is the recipe to rebuild them
+Five task-scoped agent presets for DeepSeek Harness. This is the recipe to rebuild them
 elsewhere, either by cloning this repository or from the pinned sources below.
 
 - **`powerbi`** — dashboard work: a PBIP project's report, semantic model, Power Query M and Deneb
@@ -9,8 +9,12 @@ elsewhere, either by cloning this repository or from the pinned sources below.
   intelligence.
 - **`docs`** — documentation generated from a repository: HTML and PDF with diagrams, animation and
   interactive charts.
+- **`web`** — frontend and web-application work: TypeScript and JavaScript, accessible markup,
+  component architecture, APIs, browser verification.
+- **`excel-pq`** — Excel workbooks and Power Query M, with routing between headless file tools and
+  the live Excel engine, safe-write protocol and SAP export intake.
 
-A fourth preset, `standard`, ships with DSH and is left alone.
+A sixth preset, `standard`, ships with DSH and is left alone.
 
 ---
 
@@ -96,6 +100,7 @@ profile-bundles/
   docs/…
   coding/…
   web/…
+  excel-pq/…
 ```
 
 The profile's `package.json` lists them as `link:` dependencies under
@@ -344,6 +349,35 @@ upstream is CC-BY-3.0. Rejected as well on merit: the model knows these language
 linters in CI rather than to a skill that asks for it, and a language standard would fight
 `repo-orientation`, which tells the agent to match the repository's own conventions.
 
+### 4.6 `excel-pq` — 4 skills, 3 MCP
+
+Written for this setup; there is no upstream collection to pin. The profile arrives as a
+self-contained `excel-pq/` package holding a `README.md`, an `mcp.json` and four skills, and was
+ported here whole: the skills and their scripts are carried as they are, and `mcp.json` became the
+three MCP rows in section 5.
+
+| skill | what it covers |
+|---|---|
+| `excel-pq-routing` | inspecting a workbook for the parts file libraries destroy on save, then choosing the live engine, the M server or headless tools |
+| `xlsx-safety` | work copies with a sha256, backups, plan before write, dry runs and diffs, explicit session saves, re-reading the result as proof |
+| `sap-export-intake` | SAP ALV and list exports: `0080…` keys as text, `00.00.0000` and `31.12.9999`, decimal comma, trailing minus, subtotal rows |
+| `pq-conventions` | M house style — `p_*` / `stg_*` / `dim_*` / `fct_*` / `rpt_*` / `fn_*` layering, whitelist column selection, folding, and the validate-evaluate-lint-dry-run-refresh loop |
+
+Scripts live inside the skill directories (`inspect_workbook.py`, `roundtrip_check.py`,
+`make_work_copy.py`, `profile_sap_export.py`) and travel with them.
+
+**Two of those scripts import openpyxl, and the bare `python` on this machine does not have it.**
+It resolves to another tool's virtualenv (`D:\local\hermes\hermes-agent\venv`), which must not be
+installed into. The preset's persona therefore runs them as
+`uv run --with openpyxl python <script>`; `inspect_workbook.py` and `make_work_copy.py` are
+standard-library-only and run under plain `python`. This is the one porting change with a silent
+failure mode: without it the skills' own commands raise `ModuleNotFoundError`, which reads like a
+corrupted workbook rather than a missing dependency.
+
+The two M references files (`m-patterns.md`, `sap-m-snippets.md`) are carried unchanged and both
+still say they were written from the language reference and **not executed in Excel** — validate
+them with `validate_m` / `evaluate_steps` before relying on them.
+
 ---
 
 ## 5. The MCP rows
@@ -470,6 +504,77 @@ degradation rather than an error. Go needs `gopls` installed. Set `line_ending: 
 global default is `native`, which on Windows is CRLF, and Serena passes it to `write_text`, so every
 symbolic edit rewrites the whole file's line endings.
 
+### `excel-pq`
+
+Three servers. The counts below were measured by starting each one through the MCP handshake and
+asking for `tools/list`, not copied from documentation:
+
+| row | `serverName` | command | tools |
+|---|---|---|---|
+| `mcp-excel-live` | `excel-live` | `npx -y @sbroenne/mcp-server-excel` | 31 |
+| `mcp-pq` | `pq` | `uvx letin` | 31 |
+| `mcp-excel-files` | `excel-files` | `uvx excel-mcp-server stdio` | 7 |
+
+```yaml
+- id: mcp-excel-live
+  name: '@deepseek-ai/dsh-mcp-client'
+  config:
+    transport: stdio
+    serverName: excel-live
+    command: npx
+    args: ['-y', '@sbroenne/mcp-server-excel']
+    toolCallTimeoutMs: 240000
+    failOnStartupError: false
+
+- id: mcp-pq
+  name: '@deepseek-ai/dsh-mcp-client'
+  config:
+    transport: stdio
+    serverName: pq
+    command: uvx
+    args: [letin]
+    toolCallTimeoutMs: 240000
+    failOnStartupError: false
+
+- id: mcp-excel-files
+  name: '@deepseek-ai/dsh-mcp-client'
+  config:
+    transport: stdio
+    serverName: excel-files
+    command: uvx
+    args: [excel-mcp-server, stdio]
+    env:
+      EXCEL_MCP_READ_ONLY: '1'
+      EXCEL_FILES_PATH: 'C:\xlsx'
+    toolCallTimeoutMs: 120000
+    failOnStartupError: false
+```
+
+`serverName` is the tool namespace: the model sees `mcp__excel-live__range`, `mcp__pq__validate_m`
+and `mcp__excel-files__read_range`. It must match `[A-Za-z0-9_-]{1,32}` and be unique across live
+instances; the hyphens here are fine.
+
+The three are complementary rather than interchangeable, which is the whole point of the preset:
+
+- **`excel-live` is the only one that can refresh or recalculate.** Its `powerquery`, `datamodel`,
+  `connection`, `slicer`, `pivottable` and `vba` operation groups have no headless substitute. Excel
+  refresh legitimately runs past 30s, hence the 240s timeout — a timeout is not proof of failure, so
+  the model is told to check state before retrying.
+- **`pq` reads M out of a CLOSED workbook** without starting Excel, by parsing the DataMashup part.
+  That is what makes lint, dependency graph and diff possible at all. It writes through Excel when
+  asked to, which is why the preset forbids `pq` and `excel-live` writing the same workbook at once.
+- **`excel-files` needs no Excel at all**, for paging ranges and profiling. `EXCEL_MCP_READ_ONLY=1`
+  is the posture the profile wants; `0` would give this server a second write path into the same
+  files the other two own.
+
+69 tools across the three is a real context cost, and it is the reason `excel-pq-routing` exists:
+the agent is meant to reach for the cheapest server that answers the question, not for all three.
+**Do not add a second full Excel server** (`ThepExcelMCP` and similar) beside `excel-live` — the
+tool lists overlap and compete for the same context.
+
+`EXCEL_FILES_PATH` is the server's own root, must be a literal path (see the `{{cwd}}` gotcha
+above) and must exist; `C:\xlsx` is created for it.
+
 ---
 
 ## 6. Machine-specific values to change
@@ -479,9 +584,15 @@ symbolic edit rewrites the whole file's line endings.
 | `coding/agent.cordis.yml` | `--project` path | your project's absolute path |
 | `coding/agent.cordis.yml` | `--context` path | where you put `serena/contexts/` |
 | `docs/agent.cordis.yml` | `--screenshotMaxWidth` | your preferred screenshot width |
+| every `*/cordis.patch.yml` | `customSkillDirs` | where you cloned this repository |
+| `excel-pq/cordis.patch.yml` | `EXCEL_FILES_PATH` (`C:\xlsx`) | the folder your xlsx files live in |
 | `<project>/.serena/project.yml` | `language_servers`, `line_ending` | the languages you use |
 
-Nothing else is machine-specific. The `powerbi` and `docs` MCP rows use `npx` and carry no paths.
+`customSkillDirs` is the one machine-specific value every preset carries, because the default skill
+roots do not cover a preset directory (section 2).
+
+Nothing else is machine-specific. The `powerbi` and `docs` MCP rows use `npx` and carry no paths;
+`excel-pq` uses `npx` and `uvx` and carries only the two values above.
 
 ---
 
@@ -510,7 +621,23 @@ npx -y @microsoft/powerbi-modeling-mcp@latest --start     # expect 21
 npx -y chrome-devtools-mcp@latest --headless --isolated   # expect 29, or 24 with the flags
 serena start-mcp-server --context <ctx> --project <proj>   # expect 11
 npx -y @upstash/context7-mcp@latest                        # expect 2
+npx -y @sbroenne/mcp-server-excel                          # expect 31
+uvx letin                                                  # expect 31
+uvx excel-mcp-server stdio                                 # expect 7
 ```
+
+**The bundle's own checks.** `profile-bundles/validate.cjs` parses the patch, checks the patch
+dialect shape, compares the plugin-id multiset against `agent.cordis.yml.source`, and verifies the
+MCP rows, `customSkillDirs` and the skill count on disk:
+
+```bash
+node profile-bundles/validate.cjs     # expect OK for all five, then ALL CHECKS PASSED
+```
+
+It does **not** resolve package names, and that is the failure that actually bit here: the retired
+compositions mounted `@deepseek-ai/dsh-workflow-worker-thread`, which no longer exists, and a
+missing package name fails at mount rather than at parse. Check that every `name:` in a new patch
+resolves from the profile and from the DSH install before trusting it.
 
 **Serena actually serves the project.** Listing tools is not enough — the project can be absent
 while the tools exist. Call `get_symbols_overview` on a real file and confirm it returns symbols.
@@ -541,3 +668,17 @@ Everything asserted above about tool counts, server behaviour, Serena's exclusio
 gotchas came from running the thing, not from its documentation. Where it did not, it says so. The
 same discipline is worth applying to any change made here: a check that measures something adjacent
 to what was asked is worse than no check, because it produces confidence without evidence.
+
+**`excel-pq` specifically.** Measured here: the three MCP servers start and return the tool counts
+in section 5; the patch and its source parse and agree; all 28 distinct plugin specifiers resolve
+from the profile and the DSH install; the four skills' frontmatter is valid; the loader row
+`include:preset-excel-pq` reports `enabled: true, fiberPhase: active`; no file carries a BOM.
+
+Not measured here: **no session has yet been opened on the `excel-pq` preset**, so its child plugins
+have never mounted together and the four skills have never appeared in a live catalog. An existing
+session keeps the plugin revision it started with, so that check needs a new session — open the
+preset picker and read what it says, which is the only thing that proves composition rather than
+declaration. Also inherited unverified from the source package: the four scripts were exercised
+against synthetic workbooks rather than real Excel output, the two M reference files have still
+never been executed in Excel, and `letin` is young (v0.2), which is why the `.pq` export belongs in
+git.

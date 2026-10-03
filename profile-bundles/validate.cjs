@@ -1,4 +1,4 @@
-// Validates all four preset bundle patches that now live in the git-backed presets repository:
+// Validates all five preset bundle patches that now live in the git-backed presets repository:
 // YAML parse, patch dialect shape, plugin-row multiset against the source composition, MCP rows,
 // customSkillDirs, and package.json wiring. ASCII-only output.
 'use strict';
@@ -18,6 +18,7 @@ const expected = {
   docs:    { order: 20, name: 'Documentation / HTML / PDF', mcp: ['mcp-chrome-devtools'], skills: 12 },
   coding:  { order: 30, name: 'Software engineering', mcp: ['mcp-serena', 'mcp-context7'], skills: 38 },
   web:     { order: 40, name: 'Web development', mcp: ['mcp-context7', 'mcp-chrome-devtools'], skills: 25 },
+  'excel-pq': { order: 50, name: 'Excel / Power Query', mcp: ['mcp-excel-live', 'mcp-pq', 'mcp-excel-files'], skills: 4 },
 };
 
 let failures = 0;

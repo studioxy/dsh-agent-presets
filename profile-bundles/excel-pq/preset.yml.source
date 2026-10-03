@@ -1,0 +1,3 @@
+name: "Excel / Power Query"
+description: "Excel workbooks and Power Query M: routing between headless file tools and the live Excel engine, safe writes with work copies and backups, SAP export intake, and M authoring conventions. Carries the excel-live, pq and excel-files MCP servers."
+order: 50
