@@ -1,0 +1,3 @@
+name: "Web development"
+description: "Web application engineering in TypeScript and JavaScript: frontend implementation, APIs, accessibility, testing and browser verification. Chrome DevTools for live-page inspection and Context7 for current library documentation; no project-pinned Serena."
+order: 40
