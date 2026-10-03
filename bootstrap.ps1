@@ -307,6 +307,13 @@ if ($Check) {
         if ($LASTEXITCODE -eq 0) { Write-Ok 'weryfikacja presetow: OK' } else { Write-Bad 'weryfikacja presetow: BLAD' }
     }
 
+    $rm = Join-Path $Dest 'check-readme.mjs'
+    if (Test-Path $rm) {
+        $out = node $rm 2>&1
+        $out | Select-Object -Last 2 | ForEach-Object { Write-Info $_ }
+        if ($LASTEXITCODE -eq 0) { Write-Ok 'README zgodny z repo: OK' } else { Write-Bad 'README niezgodny z repo' }
+    }
+
     $refs = Join-Path $Dest 'check-references.mjs'
     if (Test-Path $refs) {
         $out = node $refs 2>&1
