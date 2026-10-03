@@ -15,3 +15,8 @@ docs/venv/
 # history rather than content.
 .backup-*/
 *.bak
+
+# The generated cost dashboard and its log. Regenerate with:  node session-cost.mjs --html
+# Not committed: it carries cost figures and workspace names, and this repository is public.
+cost-dashboard.html
+cost-dashboard.log

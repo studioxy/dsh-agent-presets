@@ -188,18 +188,20 @@ function isPeak(epochMs) {
 function priceFor(prices, overrides, provider, model, epochMs) {
   const o = overrides[`${provider}/${model}`] ?? overrides[model]
   if (o) {
-    const pick = o.peak && o.offPeak ? (isPeak(epochMs) ? o.peak : o.offPeak) : o
+    const tiered = Boolean(o.peak && o.offPeak)
+    const pick = tiered ? (isPeak(epochMs) ? o.peak : o.offPeak) : o
     return {
       in: pick.input, out: pick.output, cache: pick.cacheRead ?? null,
-      source: o.peak && o.offPeak ? `prices.json (${isPeak(epochMs) ? 'peak' : 'off-peak'})` : 'prices.json',
+      tariff: tiered ? (isPeak(epochMs) ? 'peak' : 'offPeak') : 'flat',
+      source: tiered ? `prices.json (${isPeak(epochMs) ? 'peak' : 'off-peak'})` : 'prices.json',
     }
   }
   const exact = prices[`${provider}\u0000${model}`]
-  if (exact) return exact
+  if (exact) return { ...exact, tariff: 'flat' }
   // a gateway may list the same model id under a different provider name; fall back to name only
   for (const [k, v] of Object.entries(prices)) {
     const [, id] = k.split('\u0000')
-    if (id === model) return { ...v, source: `${v.source} (matched by name)` }
+    if (id === model) return { ...v, tariff: 'flat', source: `${v.source} (matched by name)` }
   }
   return null
 }
@@ -230,7 +232,13 @@ function analyse(path, prices, overrides) {
     const u = j.data?.usage
     if (!u) continue
     const key = current ?? '(model unknown)'
-    const acc = byModel.get(key) ?? { requests: 0, input: 0, output: 0, cache: 0, reasoning: 0, cost: 0, priced: false, sources: new Set() }
+    const acc = byModel.get(key) ?? {
+      requests: 0, input: 0, output: 0, cache: 0, reasoning: 0, cost: 0, priced: false, sources: new Set(),
+      costPeak: 0, costOffPeak: 0, costFlat: 0,
+      cacheSaving: 0,        // what the cache reads would have cost at the cache-miss rate
+      cacheWouldCost: 0,     // and what they did cost
+      offPeakCounterfactual: 0, // the whole line priced at off-peak, to size the peak premium
+    }
     acc.requests++
     acc.input += u.inputTokens ?? 0
     acc.output += u.outputTokens ?? 0
@@ -242,7 +250,21 @@ function analyse(path, prices, overrides) {
     if (p) {
       acc.priced = true
       acc.sources.add(p.source)
-      acc.cost += (u.inputTokens ?? 0) * p.in + (u.outputTokens ?? 0) * p.out + (u.cacheReadTokens ?? 0) * (p.cache ?? p.in)
+      const inp = u.inputTokens ?? 0, out = u.outputTokens ?? 0, cac = u.cacheReadTokens ?? 0
+      const line = inp * p.in + out * p.out + cac * (p.cache ?? p.in)
+      acc.cost += line
+
+      if (p.tariff === 'peak') acc.costPeak += line
+      else if (p.tariff === 'offPeak') acc.costOffPeak += line
+      else acc.costFlat += line
+
+      // cache: what it cost, against what the same reads would cost at the input rate
+      const cacheRate = p.cache ?? p.in
+      acc.cacheSaving += cac * (p.in - cacheRate)
+      acc.cacheWouldCost += cac * cacheRate
+
+      // off-peak counterfactual, so the peak premium can be sized even for a flat-priced model
+      acc.offPeakCounterfactual += inp * p.in + out * p.out + cac * cacheRate
     }
     byModel.set(key, acc)
   }
@@ -303,6 +325,9 @@ if (flag('--html')) {
       byModel: Object.fromEntries([...r.byModel].map(([k, a]) => [k, {
         requests: a.requests, input: a.input, output: a.output, cache: a.cache,
         reasoning: a.reasoning, cost: a.cost, priced: a.priced,
+        costPeak: a.costPeak, costOffPeak: a.costOffPeak, costFlat: a.costFlat,
+        cacheSaving: a.cacheSaving, cacheWouldCost: a.cacheWouldCost,
+        offPeakCounterfactual: a.offPeakCounterfactual,
         sources: [...(a.sources ?? [])],
       }])),
     })),

@@ -19,17 +19,25 @@ const short = (n) => {
 function aggregate(sessions) {
   const byModel = new Map()
   const byDay = new Map()
-  const total = { cost: 0, input: 0, output: 0, cache: 0, requests: 0, sessions: 0, unpriced: 0 }
+  const total = {
+    cost: 0, input: 0, output: 0, cache: 0, reasoning: 0, requests: 0, sessions: 0, unpriced: 0,
+    costPeak: 0, costOffPeak: 0, costFlat: 0, cacheSaving: 0, cacheWouldCost: 0, offPeakCounterfactual: 0,
+  }
+  const NUM = ['cost', 'input', 'output', 'cache', 'reasoning', 'requests', 'costPeak', 'costOffPeak', 'costFlat', 'cacheSaving', 'cacheWouldCost', 'offPeakCounterfactual']
 
   for (const s of sessions) {
     let scost = 0
     for (const [model, a] of Object.entries(s.byModel)) {
-      const m = byModel.get(model) ?? { cost: 0, input: 0, output: 0, cache: 0, requests: 0, sessions: 0, priced: a.priced }
-      m.cost += a.cost; m.input += a.input; m.output += a.output; m.cache += a.cache; m.requests += a.requests; m.sessions++
+      const m = byModel.get(model) ?? Object.fromEntries([...NUM.map((k) => [k, 0]), ['sessions', 0], ['priced', a.priced]])
+      for (const k of NUM) m[k] += a[k] ?? 0
+      m.sessions++
       m.priced = m.priced || a.priced
       byModel.set(model, m)
       scost += a.cost
-      total.input += a.input; total.output += a.output; total.cache += a.cache; total.requests += a.requests
+      // 'cost' is excluded here and added once below from scost; including it in both places
+      // doubled the grand total, which is how the mistake was caught.
+      for (const k of NUM) if (k !== 'requests' && k !== 'cost') total[k] += a[k] ?? 0
+      total.requests += a.requests
       if (!a.priced) total.unpriced += a.input + a.output + a.cache
     }
     total.cost += scost
@@ -109,7 +117,12 @@ export function render(data) {
   const { byModel, byDay, total } = aggregate(sessions)
   const days = [...byDay.keys()].sort()
   const pricedCost = total.cost
-  const cacheShare = total.input + total.cache > 0 ? total.cache / (total.input + total.cache) * 100 : 0
+
+  const peakTotal = total.costPeak + total.costOffPeak
+  const hasTariff = peakTotal > 0
+  const peakPremium = hasTariff ? total.costPeak - (total.costPeak / 2) : 0   // off-peak is half of peak
+  const cachePct = total.input + total.cache > 0 ? total.cache / (total.input + total.cache) * 100 : 0
+  const cacheShareOfBill = total.cacheWouldCost > 0 ? total.cacheWouldCost / pricedCost * 100 : 0
 
   const sessionRows = [...sessions].sort((a, b) => b.mtime - a.mtime).map((s) => {
     let cost = 0, tokens = 0, unpriced = 0
@@ -138,7 +151,7 @@ export function render(data) {
   :root {
     --bg: #0f1115; --panel: #171a21; --line: #262b36; --fg: #e6e9ef;
     --muted: #8b93a5; --accent: #6ea8fe; --in: #4c7dd8; --out: #e0a458; --cache: #4f9e7a;
-    --warn: #e0a458;
+    --warn: #e0a458; --peak: #c96a5a;
   }
   @media (prefers-color-scheme: light) {
     :root { --bg:#f7f8fa; --panel:#fff; --line:#e3e6ec; --fg:#1a1d23; --muted:#6b7280; }
@@ -185,6 +198,19 @@ export function render(data) {
   .chip { background: var(--line); color: var(--muted); border-radius: 4px; padding: 1px 6px; font-size: 11px; white-space: nowrap; }
   .legend { display: flex; gap: 18px; color: var(--muted); font-size: 12px; margin-top: 12px; flex-wrap: wrap; }
   .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .lead { color: var(--muted); font-size: 13px; margin: 0 0 18px; max-width: 76ch; }
+  .lead strong { color: var(--fg); font-weight: 600; }
+  .cards.inner { margin-bottom: 0; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  .card.accent { border-color: var(--cache); }
+  .card.accent .v { color: var(--cache); }
+  .split { margin-bottom: 20px; }
+  .split-bar { display: flex; height: 26px; border-radius: 5px; overflow: hidden; background: var(--line); }
+  .split-seg.peak { background: var(--peak); }
+  .split-seg.off { background: var(--cache); }
+  .callout { border: 1px solid var(--line); border-left: 3px solid var(--warn); border-radius: 6px; padding: 16px 18px; background: color-mix(in srgb, var(--warn) 6%, transparent); }
+  .callout-k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+  .callout-v { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .callout-n { color: var(--muted); font-size: 12px; margin-top: 6px; max-width: 78ch; }
   footer { color: var(--muted); font-size: 12px; margin-top: 28px; line-height: 1.7; }
   code { background: var(--line); padding: 1px 5px; border-radius: 3px; font-size: 12px; }
 </style>
@@ -200,8 +226,44 @@ export function render(data) {
     <div class="card"><div class="k">Sesje</div><div class="v">${total.sessions}</div><div class="n">${days.length} dni</div></div>
     <div class="card"><div class="k">Zadania</div><div class="v">${num(total.requests)}</div><div class="n">wywolania modelu</div></div>
     <div class="card"><div class="k">Tokeny</div><div class="v">${short(total.input + total.output + total.cache)}</div><div class="n">${short(total.input)} in &middot; ${short(total.output)} out</div></div>
-    <div class="card"><div class="k">Cache</div><div class="v">${cacheShare.toFixed(0)}%</div><div class="n">${short(total.cache)} odczytow</div></div>
+    <div class="card"><div class="k">Cache</div><div class="v">${cachePct.toFixed(0)}%</div><div class="n">${short(total.cache)} odczytow</div></div>
+    <div class="card"><div class="k">Rozumowanie</div><div class="v">${short(total.reasoning)}</div><div class="n">${total.output ? `${(total.reasoning / total.output * 100).toFixed(0)}% outputu` : 'brak danych'}</div></div>
   </div>
+
+  ${hasTariff ? `
+  <section>
+    <h2>Taryfa: szczyt i pozaszczyt</h2>
+    <p class="lead">DeepSeek liczy szczyt i pozaszczyt osobno, a pozaszczyt to <strong>polowa ceny</strong>.
+    Szczyt wypada 01:00&ndash;04:00 i 06:00&ndash;10:00 UTC, od poniedzialku do piatku. Kazde zadanie jest
+    wyceniane po taryfie, w ktorej faktycznie sie wydarzylo.</p>
+    <div class="split">
+      <div class="split-bar">
+        <div class="split-seg peak" style="width:${(total.costPeak / peakTotal * 100).toFixed(2)}%" title="szczyt ${usd(total.costPeak)}"></div>
+        <div class="split-seg off" style="width:${(total.costOffPeak / peakTotal * 100).toFixed(2)}%" title="pozaszczyt ${usd(total.costOffPeak)}"></div>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--peak)"></i>szczyt ${usd(total.costPeak)} &middot; ${(total.costPeak / peakTotal * 100).toFixed(1)}%</span>
+        <span><i style="background:var(--cache)"></i>pozaszczyt ${usd(total.costOffPeak)} &middot; ${(total.costOffPeak / peakTotal * 100).toFixed(1)}%</span>
+      </div>
+    </div>
+    <div class="callout">
+      <div class="callout-k">Do odzyskania przez przesuniecie pracy poza szczyt</div>
+      <div class="callout-v">${usd(peakPremium)}</div>
+      <div class="callout-n">Tyle kosztuje sam szczyt: te same zadania po stawce pozaszczytowej kosztowalyby ${usd(total.costPeak / 2)} zamiast ${usd(total.costPeak)}. Nie liczac chinskich swiat, ktorych ten raport nie wykrywa.</div>
+    </div>
+  </section>` : ''}
+
+  <section>
+    <h2>Ile daje cache</h2>
+    <p class="lead">Odczyt z cache jest rozliczany osobno i jest znacznie tanszy od zwyklego wejscia.
+    Ponizej: ile te odczyty kosztowaly, ile kosztowalyby po stawce cache-miss, i ile to razem oszczedza.</p>
+    <div class="cards inner">
+      <div class="card"><div class="k">Odczytow z cache</div><div class="v">${short(total.cache)}</div><div class="n">${cachePct.toFixed(1)}% calego wejscia</div></div>
+      <div class="card"><div class="k">Zaplacono za nie</div><div class="v">${usd(total.cacheWouldCost)}</div><div class="n">${cacheShareOfBill.toFixed(1)}% rachunku</div></div>
+      <div class="card"><div class="k">Bez cache</div><div class="v">${usd(total.cacheWouldCost + total.cacheSaving)}</div><div class="n">po stawce cache-miss</div></div>
+      <div class="card accent"><div class="k">Zaoszczedzone</div><div class="v">${usd(total.cacheSaving)}</div><div class="n">${total.cacheWouldCost + total.cacheSaving > 0 ? `${(total.cacheSaving / (total.cacheWouldCost + total.cacheSaving) * 100).toFixed(1)}% tej pozycji` : ''}</div></div>
+    </div>
+  </section>
 
   <section>
     <h2>Koszt w czasie</h2>
