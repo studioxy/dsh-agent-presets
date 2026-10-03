@@ -252,16 +252,37 @@ pinned content. If you would rather not maintain copies, the user skill root
 `<dshHome>/skills` is read by every preset and holds one copy — the tradeoff is that it falls
 outside this repository and therefore outside version control.
 
-### 4.5 `web` — 19 skills, 2 MCP
+### 4.5 `web` — 23 skills, 2 MCP
 
-Built from the other presets rather than from an upstream, because no collection covered this
-cleanly. It is the frontend and web-application composition: TypeScript and JavaScript, accessible
-markup, APIs, browser verification.
+Built from the other presets and from one further upstream, rather than from a single collection,
+because none covered this cleanly. It is the frontend and web-application composition: TypeScript
+and JavaScript, accessible markup, component architecture, APIs, browser verification.
 
 | borrowed from | skills |
 |---|---|
-| `coding` | `api-and-interface-design`, `browser-testing-with-devtools`, `code-review-and-quality`, `code-simplification`, `context-engineering`, `frontend-ui-engineering`, `git-workflow-and-versioning`, `incremental-implementation`, `performance-optimization`, `security-and-hardening`, `source-driven-development`, `spec-driven-development`, `test-design`, `test-driven-development`, `verification-before-completion`, `repo-orientation`, `humanizer`, `model-orchestration` |
+| `coding` | `api-and-interface-design`, `browser-testing-with-devtools`, `code-review-and-quality`, `code-simplification`, `context-engineering`, `frontend-ui-engineering`, `git-workflow-and-versioning`, `incremental-implementation`, `performance-optimization`, `security-and-hardening`, `source-driven-development`, `spec-driven-development`, `systematic-debugging`, `test-design`, `test-driven-development`, `verification-before-completion`, `repo-orientation`, `humanizer`, `model-orchestration` |
 | `docs` | `high-end-visual-design` |
+| magnus919/agent-skills (MIT, `54d81f7e0205`) | `web-accessibility`, `react`, `frontend-engineering` |
+
+The three vendored additions are whole bundles, since a thin `SKILL.md` with references beside it is
+the intended shape:
+
+| skill | bundle | why it is here |
+|---|---|---|
+| `web-accessibility` | 17 files, 36 KB | implementation-time checklists for design, implementation and release, plus references on keyboard and focus, semantics and names, and forms and errors |
+| `react` | 7 files, 22 KB | the only React material in any preset: component and state guidance, Vite diagnostics, and a `react-doctor.py` script with tests |
+| `frontend-engineering` | 12 files, 76 KB | 32 KB on responsive-layout testing and performance budgets with a checker script, neither of which the UI-craft skill covers |
+
+**`frontend-engineering` partially overlaps `frontend-ui-engineering`, and this was a borderline
+call rather than a clear one.** They share component architecture and state management. They were
+kept apart because the vocabulary overlap measured 17% and because the assets differ in kind: one is
+a complete single-file guide to UI craft, the other a thin methodology over heavy references. If the
+pair ever gives conflicting advice, this is the decision to revisit.
+
+The other two candidates were rejected. `sickn33/agentic-awesome-skills` has 47k stars and MIT but
+ships 8,203 skills, which is a dump rather than a curation and already contains duplicates of two
+skills installed here. `helloianneo/awesome-claude-code-skills` is well regarded but had not been
+updated in six months, and two further collections carried no licence at all.
 
 Two deliberate differences from `coding`, both recorded in the bundle header:
 

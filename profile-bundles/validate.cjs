@@ -17,7 +17,7 @@ const expected = {
   powerbi: { order: 10, name: 'Power BI / Deneb', mcp: ['mcp-powerbi-modeling'], skills: 12 },
   docs:    { order: 20, name: 'Documentation / HTML / PDF', mcp: ['mcp-chrome-devtools'], skills: 12 },
   coding:  { order: 30, name: 'Software engineering', mcp: ['mcp-serena', 'mcp-context7'], skills: 38 },
-  web:     { order: 40, name: 'Web development', mcp: ['mcp-context7', 'mcp-chrome-devtools'], skills: 19 },
+  web:     { order: 40, name: 'Web development', mcp: ['mcp-context7', 'mcp-chrome-devtools'], skills: 23 },
 };
 
 let failures = 0;
