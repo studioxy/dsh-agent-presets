@@ -16,6 +16,55 @@ A sixth, `standard`, ships with DSH and is untouched.
 
 ---
 
+## What a session cost
+
+The session statistics dialog in the GUI shows tokens, turns and timings. **It has no cost line, and
+no setting adds one.** The harness models cost — a model carries a `cost` field — but nothing
+populates it and nothing reads it; the source says so in a comment, *"cost metadata — replay.ts
+zeroes it and no consumer"*, and the pi-ai catalogue ships no prices at all.
+
+`session-cost.mjs` reads the same durable log and prices it against what the gateways actually
+charge:
+
+```bash
+node session-cost.mjs              # the most recent session
+node session-cost.mjs --all        # every session, one line each
+node session-cost.mjs --json       # machine-readable
+node session-cost.mjs --refresh    # re-fetch prices instead of using the cache
+```
+
+```
+model                                    req       input      output  cache-read        cost
+cheaperinference / deepseek-v4.1-flash   323     360,848     251,353 129,635,584    $0.296923
+cheaperinference / gpt-6-luna             22     430,129      26,485   4,327,617    $0.064696
+deepseek-official / deepseek-flash       983   1,800,117     953,649 478,393,344            ?
+RAZEM                                                                              $0.361618
+```
+
+Three things are worth knowing about how it derives those numbers.
+
+**Where the model comes from.** Each `assistant/message` carries usage but not which model produced
+it, so the script takes the `config` of the most recent `request/header` before it. A session that
+switched models mid-way is priced per request rather than at one rate, which is why the table can
+have several rows.
+
+**Where the prices come from.** Three gateways, in two different units: `cheaperinference` quotes per
+million tokens, `kilocode` and `openrouter` per single token. All are normalised to USD per token.
+942 models are known.
+
+**Why some rows show `?`.** A model no gateway lists is reported with its token counts and an unknown
+cost, never as zero. Several models here — anything on the built-in `deepseek-official` provider — are
+in that position, and a plausible-looking number would be worse than an absent one. To price one, add
+`prices.json` beside the script:
+
+```json
+{ "deepseek-official/deepseek-flash": { "input": 0.0000002, "output": 0.0000008, "cacheRead": 0.00000002 } }
+```
+
+Values are USD per single token. `cacheRead` may be omitted, in which case the input price is used.
+
+---
+
 ## Quick start on a new machine
 
 ```powershell
@@ -61,6 +110,7 @@ dsh web                           # then add API keys in the GUI
 | `sync-profile.mjs` | copies `profile/` into a DSH profile, dry run by default |
 | `verify-presets.mjs` | checks skill counts, frontmatter, package resolution and profile wiring |
 | `check-references.mjs` | checks that every file a skill tells an agent to read exists |
+| `session-cost.mjs` | reports token usage and USD cost per session, from the durable log |
 | `profile-bundles/validate.cjs` | validates the bundle patches against their source compositions |
 | `REPRODUCE.md` | the long version: layout, pinned sources, MCP rows, and what has gone wrong |
 
