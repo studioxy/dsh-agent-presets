@@ -38,7 +38,13 @@ and uses `pypdfium2`, which has no native dependency.
 
 ## 2. Layout
 
-A preset is a directory under `<dshHome>/.agent-presets/<id>/` containing:
+**This changed in DSH 0.1.7-rc.2, and the change quietly orphaned every preset built the old way.**
+Read this section even if you are only updating an existing setup.
+
+### The retired model, and why it broke
+
+Presets used to be directories under `<dshHome>/.agent-presets/<id>/`, discovered automatically by
+a package called `dsh-agent-presets`:
 
 ```
 <id>/
@@ -47,9 +53,72 @@ A preset is a directory under `<dshHome>/.agent-presets/<id>/` containing:
   skills/<name>/SKILL.md
 ```
 
-`agent.cordis.yml` is a copy of the shipped `standard` composition with one line changed — the
-persona — plus any MCP rows. That is deliberate: the tool roster stays identical across presets so
-nothing breaks, and the presets differ by persona, skills and MCP.
+**That package no longer exists.** It was replaced by `dsh-agent-preset` and
+`dsh-agent-preset-registry`, and the string `.agent-presets` appears nowhere in the installed
+packages. A directory in that location is now ignored entirely: the presets do not error, they
+simply never appear, and the picker shows only the four built-ins plus an empty Custom group.
+
+The source directories are still worth keeping — the compositions and all the skills live there —
+but they are no longer what DSH reads.
+
+### The current model
+
+A preset is a **loader row inside a profile composition**:
+
+```yaml
+- insert:
+    - id: preset-powerbi                     # addresses loader edits
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: powerbi                          # the identity sessions save
+        name: Power BI / Deneb
+        description: "..."
+        order: 10
+        plugins:                             # the composition, as a child entry list
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+          ...
+```
+
+| field | meaning |
+|---|---|
+| `id` (row) | loader id, for edits |
+| `config.id` | the preset identity a session stores |
+| `config.plugins` | the child plugin entries — this is the old `agent.cordis.yml`, indented |
+| `config.name` / `description` / `order` | what the picker shows, replacing `preset.yml` |
+
+This repository keeps each preset as a **bundle**: a directory holding `package.json` with
+`dsh.bundle.patch`, and the patch file itself.
+
+```
+profile-bundles/
+  powerbi/{package.json, cordis.patch.yml, agent.cordis.yml.source, preset.yml.source}
+  docs/…
+  coding/…
+  web/…
+```
+
+The profile's `package.json` lists them as `link:` dependencies under
+`dsh.profile.bundles`. `agent.cordis.yml.source` is kept beside each patch so the validator can
+prove the plugin list was carried over faithfully, and so the next person can see both forms.
+
+**Two things every migrated preset needs, and both fail silently:**
+
+1. **`customSkillDirs` on the `skill-filesystem` row.** The default roots cover the repository and
+   the user DSH root, but not a preset directory, so the preset's skills will not mount without it:
+   ```yaml
+   - id: skill-filesystem
+     name: '@deepseek-ai/dsh-skill-filesystem'
+     config:
+       customSkillDirs:
+         - 'C:\Users\andrz\.dsh\.agent-presets\powerbi\skills'
+   ```
+2. **Package names that still exist.** The retired compositions mount
+   `@deepseek-ai/dsh-workflow-worker-thread`, which is gone. The current equivalent is
+   `@deepseek-ai/dsh-workflow-ptc` with the same `provider: spawn` config.
+
+Changing a profile's `package.json` needs `pnpm install` in the profile directory, and loading a
+**new** bundle needs a Host restart. A patch edit alone reloads live.
 
 `preset.yml` must quote any description containing a colon. An unquoted `: ` inside a YAML scalar is
 a mapping, which invalidates the whole file; the picker then shows the directory id and
@@ -59,13 +128,20 @@ a mapping, which invalidates the whole file; the picker then shows the directory
 
 ## 3. Fast path: clone this repository
 
-The presets, their skills and the Serena context are all here.
+The presets, their skills, the profile bundles and the Serena context are all here.
 
 ```bash
 git clone <this-repo> ~/.dsh/.agent-presets
 ```
 
-Then adjust the machine-specific values in section 6 and run the verification in section 7.
+Then:
+
+1. add the four `link:../../.agent-presets/profile-bundles/<id>` dependencies and the matching
+   `dsh.profile.bundles` entries to `~/.dsh/profiles/web/package.json` (section 2 has the shape),
+2. run `pnpm install` in that profile directory,
+3. adjust the machine-specific values in section 6,
+4. restart the Host so the new bundles load,
+5. run the verification in section 7.
 
 The `docs` preset's Python virtualenv is gitignored — 77 MB, rebuilt from
 `docs/skills/pdf/LOCAL-SETUP.md`.
@@ -77,7 +153,7 @@ The `docs` preset's Python virtualenv is gitignored — 77 MB, rebuilt from
 Twelve repositories. Every skill is vendored unmodified at a pinned commit, with its source,
 upstream path and commit recorded in an `ATTRIBUTION.md` beside it.
 
-### 4.1 The four skills written for this setup
+### 4.1 The skills written for this setup
 
 Not in any repository. They live only here and exist in no upstream:
 
@@ -90,7 +166,7 @@ Not in any repository. They live only here and exist in no upstream:
 
 Clone this repository to get them, or copy the directories.
 
-### 4.2 `powerbi` — 11 skills, 1 MCP
+### 4.2 `powerbi` — 12 skills, 1 MCP
 
 | skill | repo | upstream path | commit | licence |
 |---|---|---|---|---|
@@ -117,7 +193,7 @@ Full commits: `f1a514cc9c572bd07312e57c5ea57fbd6d1a1940`,
 plus an optimisation workflow. Adding it would be duplication, and removing duplication is what
 took the coding preset from 84 skills to 37.
 
-### 4.3 `docs` — 11 skills, 1 MCP
+### 4.3 `docs` — 12 skills, 1 MCP
 
 | skill | repo | upstream path | commit | licence |
 |---|---|---|---|---|
@@ -154,7 +230,7 @@ landing pages) and `design-taste-frontend-v1`, which the collection itself marks
 Also `archify-review`, which is maintainer tooling for archify's own issues rather than for
 documentation work.
 
-### 4.4 `coding` — 37 skills, 2 MCP
+### 4.4 `coding` — 38 skills, 2 MCP
 
 Pinned commits: `5bf4e78011075bcfc0dc295f0724994cd123ee71` (superpowers),
 `e3ba2aa6f1e6f0bc4d69eb09c9f0d0a93af56156` (ponytail),
@@ -168,9 +244,35 @@ Pinned commits: `5bf4e78011075bcfc0dc295f0724994cd123ee71` (superpowers),
 | mattpocock/skills | `domain-modeling` (`skills/engineering/`), `prototype` (`skills/engineering/`), `pr` (`skills/in-progress/`), `retro` (`skills/in-progress/`), `to-questionnaire` (`skills/productivity/`) | MIT |
 | DietrichGebert/ponytail | `ponytail`, `ponytail-audit`, `ponytail-debt` | MIT |
 | blader/humanizer | `humanizer` | MIT |
+| written here | `repo-orientation`, `test-design`, `model-orchestration` | — |
+
+**Every preset also carries `humanizer` and `model-orchestration`.** Both depend on machine-level
+configuration rather than on the project or the task, so they sit in all four presets at the same
+pinned content. If you would rather not maintain copies, the user skill root
+`<dshHome>/skills` is read by every preset and holds one copy — the tradeoff is that it falls
+outside this repository and therefore outside version control.
+
+### 4.5 `web` — 19 skills, 2 MCP
+
+Built from the other presets rather than from an upstream, because no collection covered this
+cleanly. It is the frontend and web-application composition: TypeScript and JavaScript, accessible
+markup, APIs, browser verification.
+
+| borrowed from | skills |
+|---|---|
+| `coding` | `api-and-interface-design`, `browser-testing-with-devtools`, `code-review-and-quality`, `code-simplification`, `context-engineering`, `frontend-ui-engineering`, `git-workflow-and-versioning`, `incremental-implementation`, `performance-optimization`, `security-and-hardening`, `source-driven-development`, `spec-driven-development`, `test-design`, `test-driven-development`, `verification-before-completion`, `repo-orientation`, `humanizer`, `model-orchestration` |
+| `docs` | `high-end-visual-design` |
+
+Two deliberate differences from `coding`, both recorded in the bundle header:
+
+- **Serena is absent.** Its `--project` argument has to be a literal path, because DSH does not
+  interpolate `{{cwd}}` in MCP rows, so `coding` can only ever serve one repository. A web preset
+  has to work across repositories. `context7` and the native search tools cover what remains.
+- **Chrome DevTools is added,** for inspecting a running page and verifying visible behaviour rather
+  than inferring it from source.
 
 **Removed as duplicates, and worth not re-adding:** 47 skills were cut across four passes, 84 down
-to 37. TDD arrived in three collections, debugging in three, code review in five, planning in five,
+to 38. TDD arrived in three collections, debugging in three, code review in five, planning in five,
 module design in four. `REPLACED-SKILLS.md` in the `powerbi` sibling records the first pass. The
 principle: when two skills do the same job, keep the most complete one and delete the rest, then
 check that nothing surviving references something removed.
