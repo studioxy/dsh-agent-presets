@@ -30,7 +30,15 @@ charge:
 node session-cost.mjs              # the most recent session
 node session-cost.mjs --all        # every session, one line each
 node session-cost.mjs --json       # machine-readable
-node session-cost.mjs --refresh    # re-fetch prices instead of using the cache
+node session-cost.mjs --refresh    # re-fetch prices now, ignoring the cache
+node session-cost.mjs --offline    # never fetch; use the cache as-is
+```
+
+The first line of every run reports what it is working from, so the age of the prices is never
+implied:
+
+```
+ceny: 942 modeli, pobrane 0 min temu  [cheaperinference 75 | kilocode 401 | openrouter 466]
 ```
 
 ```
@@ -50,7 +58,19 @@ have several rows.
 
 **Where the prices come from.** Three gateways carry a catalogue, in two different units:
 `cheaperinference` quotes per million tokens, `kilocode` and `openrouter` per single token. All are
-normalised to USD per token, and 942 models are known.
+normalised to USD per token — **942 models**, of which 75, 401 and 466 come from the three
+respectively.
+
+**They refresh themselves.** The cache carries a fetch timestamp and is re-fetched when it is more
+than 24 hours old, so a normal run stays current without anyone remembering to ask. The header line
+always says how old the prices are. If every source fails, the previous cache is kept rather than
+replaced with an empty table — a stale price is better than no report.
+
+To keep it warm without running the report, schedule it:
+
+```powershell
+schtasks /create /tn "dsh price refresh" /tr "node \"$env:USERPROFILE\.dsh\.agent-presets\session-cost.mjs\" --refresh" /sc daily /st 08:00
+```
 
 **The built-in provider's rates are by time of day.** DeepSeek bills peak and off-peak separately,
 where off-peak is half price, and peak is 01:00–04:00 and 06:00–10:00 UTC Monday to Friday. The log

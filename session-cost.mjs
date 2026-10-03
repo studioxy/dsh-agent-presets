@@ -86,16 +86,27 @@ function sessionDirs() {
 }
 
 // ── pricing ─────────────────────────────────────────────────────────────────
+//
+// The cache records when it was fetched and from where, so the report can say how old its prices are
+// rather than implying they are current. It refreshes itself once a day; --refresh forces it and
+// --offline never fetches.
+
+const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000
 
 async function fetchPrices() {
-  if (!flag('--refresh') && existsSync(CACHE)) {
-    try { return JSON.parse(readFileSync(CACHE, 'utf8')) } catch { /* refetch */ }
-  }
+  const cached = existsSync(CACHE) ? (() => { try { return JSON.parse(readFileSync(CACHE, 'utf8')) } catch { return null } })() : null
+  const age = cached?.fetchedAt ? Date.now() - cached.fetchedAt : Infinity
+
+  if (flag('--offline') && cached) return cached
+  if (!flag('--refresh') && cached && age < CACHE_MAX_AGE_MS) return cached
+  if (!flag('--refresh') && cached) console.log(`ceny starsze niz 24h (${Math.round(age / 3600000)}h) - odswiezam`)
+
   const credPath = join(DSH, '.credentials.yaml')
   const cred = existsSync(credPath) ? readFileSync(credPath, 'utf8') : ''
   const key = (n) => new RegExp(`^\\s{2}${n}:\\s*(.+)$`, 'm').exec(cred)?.[1]?.trim()
 
   const table = {}
+  const sources = []
   const add = (provider, id, pIn, pOut, pCache, unit) => {
     if (pIn === undefined) return
     const div = unit === 'million' ? 1e6 : 1
@@ -116,7 +127,8 @@ async function fetchPrices() {
         const p = m.pricing ?? {}
         add('cheaperinference', m.id, p.input_per_million, p.output_per_million, p.cache_read_input_per_million, 'million')
       }
-    } catch (e) { console.error(`  cheaperinference: ${e.message}`) }
+      sources.push(`cheaperinference ${(j.data ?? []).length}`)
+    } catch (e) { sources.push(`cheaperinference FAILED: ${e.message}`) }
   }
 
   // per-token
@@ -124,19 +136,27 @@ async function fetchPrices() {
     ['kilocode', 'https://api.kilo.ai/api/gateway/models', key('KILOCODE_API_KEY')],
     ['openrouter', 'https://openrouter.ai/api/v1/models', key('OPENROUTER_API_KEY')],
   ]) {
-    if (!k) continue
+    if (!k) { sources.push(`${provider} no key`); continue }
     try {
       const j = await (await fetch(url, { headers: { Authorization: `Bearer ${k}` } })).json()
       for (const m of j.data ?? []) {
         const p = m.pricing ?? {}
         add(provider, m.id, p.prompt, p.completion, p.input_cache_read, 'token')
       }
-    } catch (e) { console.error(`  ${provider}: ${e.message}`) }
+      sources.push(`${provider} ${(j.data ?? []).length}`)
+    } catch (e) { sources.push(`${provider} FAILED: ${e.message}`) }
   }
 
+  // If every source failed, keep the previous cache rather than replacing a stale table with none.
+  if (!Object.keys(table).length && cached) {
+    console.log('wszystkie zrodla zawiodly - zostawiam poprzedni cache')
+    return cached
+  }
+
+  const payload = { fetchedAt: Date.now(), sources, prices: table }
   mkdirSync(join(DSH, 'cache'), { recursive: true })
-  writeFileSync(CACHE, JSON.stringify(table, null, 0), 'utf8')
-  return table
+  writeFileSync(CACHE, JSON.stringify(payload), 'utf8')
+  return payload
 }
 
 // A local override wins, so a model no gateway lists can still be priced without editing this file.
@@ -235,7 +255,8 @@ const usd = (n) => `$${n.toFixed(6)}`
 
 // ── main ────────────────────────────────────────────────────────────────────
 
-const prices = await fetchPrices()
+const pricePayload = await fetchPrices()
+const prices = pricePayload.prices ?? pricePayload
 const overrides = loadOverrides()
 const priceCount = Object.keys(prices).length
 
@@ -260,8 +281,16 @@ if (flag('--json')) {
   process.exit(0)
 }
 
-console.log(`ceny znane dla ${fmt(priceCount)} modeli z 3 gatewayow${flag('--refresh') ? ' (odswiezone)' : ''}`)
-if (Object.keys(overrides).length) console.log(`nadpisania z prices.json: ${Object.keys(overrides).length}`)
+const ageH = pricePayload.fetchedAt ? (Date.now() - pricePayload.fetchedAt) / 3600000 : null
+console.log(
+  `ceny: ${fmt(priceCount)} modeli` +
+  (ageH !== null ? `, pobrane ${ageH < 1 ? `${Math.round(ageH * 60)} min` : `${ageH.toFixed(1)} h`} temu` : '') +
+  (pricePayload.sources ? `  [${pricePayload.sources.join(' | ')}]` : ''),
+)
+if (Object.keys(overrides).length) {
+  const n = Object.keys(overrides).filter((k) => !k.startsWith('_')).length
+  console.log(`nadpisania z prices.json: ${n}`)
+}
 
 if (flag('--all')) {
   console.log('')
