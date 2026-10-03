@@ -252,9 +252,9 @@ pinned content. If you would rather not maintain copies, the user skill root
 `<dshHome>/skills` is read by every preset and holds one copy — the tradeoff is that it falls
 outside this repository and therefore outside version control.
 
-### 4.5 `web` — 30 skills, 2 MCP
+### 4.5 `web` — 25 skills, 2 MCP
 
-Built from the other presets and from one further upstream, rather than from a single collection,
+Built from the other presets and from two further upstreams, rather than from a single collection,
 because none covered this cleanly. It is the frontend and web-application composition: TypeScript
 and JavaScript, accessible markup, component architecture, APIs, browser verification.
 
@@ -263,37 +263,46 @@ and JavaScript, accessible markup, component architecture, APIs, browser verific
 | `coding` | `api-and-interface-design`, `browser-testing-with-devtools`, `code-review-and-quality`, `code-simplification`, `context-engineering`, `frontend-ui-engineering`, `git-workflow-and-versioning`, `incremental-implementation`, `performance-optimization`, `security-and-hardening`, `source-driven-development`, `spec-driven-development`, `systematic-debugging`, `test-design`, `test-driven-development`, `verification-before-completion`, `repo-orientation`, `humanizer`, `model-orchestration` |
 | `docs` | `high-end-visual-design` |
 | magnus919/agent-skills (MIT, `54d81f7e0205`) | `web-accessibility`, `react`, `frontend-engineering` |
-| AgriciDaniel/claude-seo (MIT, `ff87fcee0734`) | `seo-technical`, `seo-schema`, `seo-sitemap`, `seo-page`, `seo-agentic`, `seo-geo`, `seo-plan` |
+| vercel-labs/agent-skills (**no licence**, `063bee94c3f4`) | `react-best-practices`, `web-design-guidelines` |
 
-**The SEO family does not decompose, and that is worth knowing before cherry-picking it.** Seven
-skills were taken and the set still needed one file out of an eighth. `seo-technical` hands off to
-`seo-agentic` and points at `seo-geo` for its crawler table; `seo-sitemap` loads templates from
-`../seo-plan/assets/`; and `seo-schema` instructs the agent to *read*
-`../seo/references/schema-types.md`. That last one is satisfied by a `skills/seo/references/`
-directory holding the single file, **with deliberately no `SKILL.md`**, so the provider does not
-treat it as a skill while the path still resolves.
+**The Vercel pair has no licence.** The repository carries no LICENSE file anywhere, so the default
+applies: all rights reserved. Both were installed at the operator's explicit direction after the
+absence was raised. This is recorded plainly rather than as a warning; anyone rebuilding decides
+again. It is the third such case here, after the Anthropic `pdf` skill and `codebase-to-course` in
+the `docs` preset.
 
-The repository's own `seo` skill is *not* installed even though it owns that file. It is an agency
-orchestrator that dispatches to thirty sibling skills, carries seventeen references about backlinks,
-local search and Google Maps, and names several skills the repository does not contain — installing
-it would create more dangling pointers than it resolves.
+What each actually is, since their sizes mislead in opposite directions:
+
+| skill | shape | note |
+|---|---|---|
+| `react-best-practices` | 76 files, 233 KB | 72 rule files in 8 categories prioritised from critical to low, plus a 109 KB `AGENTS.md` that is the same rules compiled into one document — kept because `SKILL.md` names it |
+| `web-design-guidelines` | 1 file, 1.2 KB | **fetches its rules at run time** from a Vercel URL rather than containing them, so it is not the stub its size suggests, and it does carry a live network dependency |
+
+### The SEO family was removed
+
+Seven skills from `AgriciDaniel/claude-seo` were briefly installed and then removed at the
+operator's direction. The episode is worth recording because it shows how a skill family resists
+cherry-picking: four were taken, three more turned out to be needed, and the set *still* required one
+file out of an eighth — `seo-schema` instructs the agent to read `../seo/references/schema-types.md`,
+which lives in the family's orchestrator.
+
+That orchestrator is the reason the family was dropped rather than completed. The `seo` skill
+dispatches to thirty siblings, carries seventeen references about backlinks, local search and Google
+Maps, and names several skills the repository does not contain. Finishing the set would have meant
+installing an agency workflow into a preset whose job is building a site.
 
 **A checker must not assume every directory under a skill root is a skill.** Three of mine did, and
-each reported a defect that did not exist once `skills/seo/` appeared. The provider's filter requires
-`<name>/SKILL.md`, so a directory without one is ignored rather than rejected; a checker that counts
-directories rather than `SKILL.md` files disagrees with the provider about what is installed.
+all three reported defects the moment a `skills/seo/` directory without a `SKILL.md` appeared. The
+provider's filter requires `<name>/SKILL.md`, so such a directory is ignored rather than rejected; a
+checker that counts directories rather than `SKILL.md` files disagrees with the provider about what
+is installed.
 
-The two remaining cross-references in `frontend-engineering` and `react` point at sibling skills
-from their own collection (`playwright`, `vite`, `mobile-development`) from *When Not To Use*
-sections. Those are routing notes rather than content reads: the skill says the topic is not its
-job. They are left as they are.
-
-**Rejected while searching:** `vercel-labs/agent-skills` (31,859 stars) carries no LICENSE file
-anywhere in the repository, which defaults to all rights reserved; and the `web-design-guidelines`
-skill the review recommended is 1.2 KB because it **fetches its rules at run time** from a Vercel
-URL rather than containing them, so it is not the stub it appears to be but it does carry a live
-network dependency. Its sibling `react-best-practices` is a proper bundle: ~70 rule files in eight
-prioritised categories.
+Three skills still name sibling skills their own collection has but we do not — `playwright`, `vite`
+and `mobile-development` from `frontend-engineering` and `react`, and `hugo-theme` and the
+`product-*` family from `web-accessibility`. Those references sit inside **When Not To Use**
+sections, so they are routing notes rather than content reads: the skill is saying the topic is not
+its job. They are left as they are, and the distinction matters — a missing *file* a skill tells the
+agent to read is a defect, a missing *sibling skill* it declines to cover is not.
 
 The three vendored additions are whole bundles, since a thin `SKILL.md` with references beside it is
 the intended shape:
