@@ -153,6 +153,90 @@ The `docs` preset's Python virtualenv is gitignored — 77 MB, rebuilt from
 
 ---
 
+## 3a. Moving the whole setup to another machine
+
+**The profile configuration lives in this repository too**, in `profile/`. Without it a clone brings
+the presets but not the provider routes, the model list, the default model or the theme, because
+those live in `~/.dsh/profiles/web/cordis.patch.yml` and DSH has no export of its own. The CLI has no
+`export`, `import` or `backup`, and the settings controller's "open location" action only opens the
+directory in a file manager.
+
+```
+profile/
+  cordis.patch.yml        provider routes, model list, theme, default model
+  cordis.yml              the empty profile root
+  package.json            the bundle links
+  pnpm-workspace.yaml
+  pnpm-lock.yaml
+```
+
+`sync-profile.mjs` copies them into place:
+
+```bash
+node sync-profile.mjs                    # dry run: prints differences, writes nothing
+node sync-profile.mjs --apply            # writes, backing up what it replaces
+node sync-profile.mjs --dest <dir>       # a profile other than ~/.dsh/profiles/web
+```
+
+The dry run is the default on purpose. A profile carries machine-specific edits — paths, a different
+default model — and a sync that overwrites them silently is worse than no sync. `--apply` backs up
+every file it replaces into `.backup-<timestamp>/`, which `.gitignore` excludes.
+
+### On the new machine
+
+1. Install the prerequisites in section 1. Node is the only hard one; the rest depend on which
+   presets matter — Chrome for `docs`, `serena` and `gopls` for `coding`, Python and `uv` for the
+   `pdf` skill.
+2. `npx @deepseek-ai/dsh` once, so `~/.dsh/` and a profile exist. If it does not create one:
+   `dsh rescue --from-default-profile web`.
+3. `git clone <this-repo> ~/.dsh/.agent-presets`
+4. `node sync-profile.mjs --apply`
+5. `pnpm install` in `~/.dsh/profiles/web`
+6. Add the credentials. **They are not in this repository and must not be.** The patch references
+   them by name — `DEEPSEEK_API_KEY`, `OPENROUTER_API_KEY`, `CHEAPERINFERENCE_API_KEY`,
+   `KILOCODE_API_KEY` — and the harness resolves each reference through its own credential store, so
+   no key was ever in the file.
+7. `dsh web` and check that the preset picker shows four cards under Custom.
+
+### What does not move, and why
+
+| not moved | why |
+|---|---|
+| `~/.dsh/.credentials.yaml` | secrets. Never through git — check the diff before the first push of any repository that was copied from a machine |
+| `~/.dsh/sessions/`, `attachments/` | session history, tens of MB, no value on another machine |
+| `~/.dsh/cache/`, `logs/`, `storages/` | transient |
+| `profiles/web/node_modules/` | rebuilt by `pnpm install` |
+| `docs/venv/` | 77 MB, rebuilt from `docs/skills/pdf/LOCAL-SETUP.md` |
+| `~/.dsh/tools/vl-convert/` | 85 MB, only needed for Deneb work |
+
+### Machine-specific values after cloning
+
+Three places name absolute paths, and a different Windows account name breaks all three:
+
+```
+coding/agent.cordis.yml     --project  <the workspace Serena serves>
+                            --context  <where serena/contexts/ lives>
+profiles/web/package.json   link:../../.agent-presets/profile-bundles/<id>
+```
+
+The `link:` entries are relative, so they survive a move as long as the repository stays at
+`<dshHome>/.agent-presets`. The two Serena paths are absolute and do not: `--project` in particular
+is literal by necessity, because DSH does not interpolate `{{cwd}}` in an MCP row's arguments.
+
+### One risk this recipe does not remove
+
+**The presets in this repository are written for one DSH version.** They were migrated once already,
+when `dsh-agent-presets` was replaced by `dsh-agent-preset` and the directory-scanned model was
+retired — an update that silently orphaned every preset built the old way. A machine installing a
+newer DSH can be orphaned the same way.
+
+The symptom to recognise: the preset picker shows the four built-ins and a Custom group with
+nothing in it, and nothing reports an error. When that happens, compare
+`dsh --profile web --dump-config` against `profile/cordis.patch.yml`, and read section 2 for the
+current shape.
+
+---
+
 ## 4. From scratch: the pinned sources
 
 Twelve repositories. Every skill is vendored unmodified at a pinned commit, with its source,

@@ -1,0 +1,25 @@
+{
+  "name": "dsh-profile-web",
+  "private": true,
+  "dependencies": {
+    "@local/dsh-coding-preset": "link:../../.agent-presets/profile-bundles/coding",
+    "@local/dsh-docs-preset": "link:../../.agent-presets/profile-bundles/docs",
+    "@local/dsh-excel-pq-preset": "link:C:/Users/andrz/.dsh/.agent-presets/profile-bundles/excel-pq",
+    "@local/dsh-powerbi-preset": "link:../../.agent-presets/profile-bundles/powerbi",
+    "@local/dsh-web-preset": "link:../../.agent-presets/profile-bundles/web"
+  },
+  "dsh": {
+    "profile": {
+      "bundles": [
+        "@deepseek-ai/dsh-base",
+        "@deepseek-ai/dsh-web-app",
+        "@local/dsh-powerbi-preset",
+        "@local/dsh-docs-preset",
+        "@local/dsh-coding-preset",
+        "@local/dsh-web-preset",
+        "@local/dsh-excel-pq-preset"
+      ],
+      "patchReload": "live"
+    }
+  }
+}

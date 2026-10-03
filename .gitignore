@@ -9,3 +9,9 @@ docs/venv/
 # anything else transient
 *.log
 *.tmp
+
+# Backups sync-profile.mjs takes before it overwrites a profile file. They hold whatever local edits
+# the machine had, which is the state the repository is meant to replace, so they are noise in
+# history rather than content.
+.backup-*/
+*.bak

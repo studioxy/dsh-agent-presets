@@ -1,0 +1,25 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: false
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@local/dsh-coding-preset':
+        specifier: link:../../.agent-presets/profile-bundles/coding
+        version: link:../../.agent-presets/profile-bundles/coding
+      '@local/dsh-docs-preset':
+        specifier: link:../../.agent-presets/profile-bundles/docs
+        version: link:../../.agent-presets/profile-bundles/docs
+      '@local/dsh-excel-pq-preset':
+        specifier: link:C:/Users/andrz/.dsh/.agent-presets/profile-bundles/excel-pq
+        version: link:../../.agent-presets/profile-bundles/excel-pq
+      '@local/dsh-powerbi-preset':
+        specifier: link:../../.agent-presets/profile-bundles/powerbi
+        version: link:../../.agent-presets/profile-bundles/powerbi
+      '@local/dsh-web-preset':
+        specifier: link:../../.agent-presets/profile-bundles/web
+        version: link:../../.agent-presets/profile-bundles/web
