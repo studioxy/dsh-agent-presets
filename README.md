@@ -1,8 +1,8 @@
 # DSH agent presets
 
-Five task-scoped agent presets for DeepSeek Harness — the `@deepseek-ai/dsh` CLI — with every skill
-vendored at a pinned commit, the profile configuration that routes them, and the scripts that put the
-whole thing on a machine.
+Five task-scoped agent presets for [DeepSeek Harness](https://deepseek-harness.github.io/deepseek-harness/en/guide/quickstart)
+— the `@deepseek-ai/dsh` CLI — with every skill vendored at a pinned commit, the profile configuration
+that routes them, and the scripts that put the whole thing on a machine.
 
 | preset | skills | MCP | for |
 |---|---|---|---|
@@ -35,33 +35,49 @@ node session-cost.mjs --refresh    # re-fetch prices instead of using the cache
 
 ```
 model                                    req       input      output  cache-read        cost
-cheaperinference / deepseek-v4.1-flash   323     360,848     251,353 129,635,584    $0.296923
+deepseek-official / deepseek-flash       983   1,800,117     953,649 478,393,344    $2.277387
+cheaperinference / deepseek-v4.1-flash   333     949,453     259,572 134,839,808    $0.351340
 cheaperinference / gpt-6-luna             22     430,129      26,485   4,327,617    $0.064696
-deepseek-official / deepseek-flash       983   1,800,117     953,649 478,393,344            ?
-RAZEM                                                                              $0.361618
+RAZEM                                                                              $2.693423
 ```
 
-Three things are worth knowing about how it derives those numbers.
+Four things are worth knowing about how it derives those numbers.
 
 **Where the model comes from.** Each `assistant/message` carries usage but not which model produced
 it, so the script takes the `config` of the most recent `request/header` before it. A session that
 switched models mid-way is priced per request rather than at one rate, which is why the table can
 have several rows.
 
-**Where the prices come from.** Three gateways, in two different units: `cheaperinference` quotes per
-million tokens, `kilocode` and `openrouter` per single token. All are normalised to USD per token.
-942 models are known.
+**Where the prices come from.** Three gateways carry a catalogue, in two different units:
+`cheaperinference` quotes per million tokens, `kilocode` and `openrouter` per single token. All are
+normalised to USD per token, and 942 models are known.
 
-**Why some rows show `?`.** A model no gateway lists is reported with its token counts and an unknown
-cost, never as zero. Several models here — anything on the built-in `deepseek-official` provider — are
-in that position, and a plausible-looking number would be worse than an absent one. To price one, add
-`prices.json` beside the script:
+**The built-in provider's rates are by time of day.** DeepSeek bills peak and off-peak separately,
+where off-peak is half price, and peak is 01:00–04:00 and 06:00–10:00 UTC Monday to Friday. The log
+records a timestamp on every record, so the rate is chosen from when the request actually happened
+rather than averaged. Those rates live in `prices.json` with their source and the date they were
+read.
+
+Chinese public holidays are excluded from peak in DeepSeek's terms and are not detectable here, so a
+holiday inside a peak window is billed at the peak rate. That error runs toward over-stating, never
+under.
+
+**Why a row can still show `?`.** A model no source lists is reported with its token counts and an
+unknown cost, never as zero — a plausible-looking number would be worse than an absent one. Add it to
+`prices.json`:
 
 ```json
-{ "deepseek-official/deepseek-flash": { "input": 0.0000002, "output": 0.0000008, "cacheRead": 0.00000002 } }
+{
+  "some-provider/some-model": { "input": 0.0000002, "output": 0.0000008, "cacheRead": 0.00000002 },
+  "another-provider/tiered": {
+    "offPeak": { "input": 0.00000015, "output": 0.0000006, "cacheRead": 0.000000003 },
+    "peak":    { "input": 0.0000003,  "output": 0.0000012, "cacheRead": 0.000000006 }
+  }
+}
 ```
 
 Values are USD per single token. `cacheRead` may be omitted, in which case the input price is used.
+Keys beginning with `_` are treated as comments.
 
 ---
 

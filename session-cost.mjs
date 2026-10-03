@@ -140,15 +140,40 @@ async function fetchPrices() {
 }
 
 // A local override wins, so a model no gateway lists can still be priced without editing this file.
+// An entry may be a flat rate, or a peak/offPeak pair for a provider that bills by time of day.
 function loadOverrides() {
   const f = join(import.meta.dirname, 'prices.json')
   if (!existsSync(f)) return {}
-  try { return JSON.parse(readFileSync(f, 'utf8')) } catch { return {} }
+  try {
+    const raw = JSON.parse(readFileSync(f, 'utf8'))
+    const out = {}
+    for (const [k, v] of Object.entries(raw)) if (!k.startsWith('_')) out[k] = v
+    return out
+  } catch { return {} }
 }
 
-function priceFor(prices, overrides, provider, model) {
+// DeepSeek bills peak and off-peak separately: 01:00-04:00 and 06:00-10:00 UTC, Monday to Friday.
+// The log records a timestamp per record, so the rate is chosen from when the request happened
+// rather than averaged. Chinese public holidays are excluded from peak in DeepSeek's terms and are
+// not detectable here, so a holiday inside a peak window is billed at peak - an error that runs
+// toward over-stating rather than under.
+function isPeak(epochMs) {
+  const d = new Date(epochMs)
+  const day = d.getUTCDay()
+  if (day === 0 || day === 6) return false
+  const h = d.getUTCHours()
+  return (h >= 1 && h < 4) || (h >= 6 && h < 10)
+}
+
+function priceFor(prices, overrides, provider, model, epochMs) {
   const o = overrides[`${provider}/${model}`] ?? overrides[model]
-  if (o) return { in: o.input, out: o.output, cache: o.cacheRead ?? null, source: 'prices.json' }
+  if (o) {
+    const pick = o.peak && o.offPeak ? (isPeak(epochMs) ? o.peak : o.offPeak) : o
+    return {
+      in: pick.input, out: pick.output, cache: pick.cacheRead ?? null,
+      source: o.peak && o.offPeak ? `prices.json (${isPeak(epochMs) ? 'peak' : 'off-peak'})` : 'prices.json',
+    }
+  }
   const exact = prices[`${provider}\u0000${model}`]
   if (exact) return exact
   // a gateway may list the same model id under a different provider name; fall back to name only
@@ -185,7 +210,7 @@ function analyse(path, prices, overrides) {
     const u = j.data?.usage
     if (!u) continue
     const key = current ?? '(model unknown)'
-    const acc = byModel.get(key) ?? { requests: 0, input: 0, output: 0, cache: 0, reasoning: 0, cost: 0, priced: false, source: null }
+    const acc = byModel.get(key) ?? { requests: 0, input: 0, output: 0, cache: 0, reasoning: 0, cost: 0, priced: false, sources: new Set() }
     acc.requests++
     acc.input += u.inputTokens ?? 0
     acc.output += u.outputTokens ?? 0
@@ -193,10 +218,10 @@ function analyse(path, prices, overrides) {
     acc.reasoning += u.reasoningTokens ?? 0
 
     const [prov, ...rest] = key.split(' / ')
-    const p = priceFor(prices, overrides, prov, rest.join(' / '))
+    const p = priceFor(prices, overrides, prov, rest.join(' / '), j.time ?? Date.now())
     if (p) {
       acc.priced = true
-      acc.source = p.source
+      acc.sources.add(p.source)
       acc.cost += (u.inputTokens ?? 0) * p.in + (u.outputTokens ?? 0) * p.out + (u.cacheReadTokens ?? 0) * (p.cache ?? p.in)
     }
     byModel.set(key, acc)

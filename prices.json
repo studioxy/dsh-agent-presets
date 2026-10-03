@@ -1,0 +1,34 @@
+{
+  "_comment": [
+    "Prices for models no gateway lists, in USD per single token.",
+    "",
+    "Values are converted from DeepSeek's published per-million rates at",
+    "https://api-docs.deepseek.com/quick_start/pricing/ - read on 2026-10-03. DeepSeek bills peak and",
+    "off-peak separately, so an entry may carry peak/offPeak instead of input/output/cacheRead.",
+    "Peak hours are 01:00-04:00 and 06:00-10:00 UTC, Monday to Friday; everything else is off-peak.",
+    "",
+    "Chinese public holidays are excluded from peak in DeepSeek's terms and this cannot detect them,",
+    "so a holiday weekday inside a peak window is billed here at the peak rate. The error is at most",
+    "a doubling on those hours and runs in the conservative direction."
+  ],
+
+  "deepseek-official/deepseek-flash": {
+    "offPeak": { "input": 0.00000015, "output": 0.0000006, "cacheRead": 0.000000003 },
+    "peak": { "input": 0.0000003, "output": 0.0000012, "cacheRead": 0.000000006 }
+  },
+
+  "deepseek-official/deepseek-v4-pro": {
+    "offPeak": { "input": 0.00000066, "output": 0.00000198, "cacheRead": 0.000000022 },
+    "peak": { "input": 0.00000132, "output": 0.00000396, "cacheRead": 0.000000044 }
+  },
+
+  "_legacy": "DeepSeek states that deepseek-v4-flash and deepseek-v4-flash-vision-exp are retired names, served by the same V4.1-Flash model and billed at the Flash price.",
+  "deepseek-official/deepseek-v4-flash": {
+    "offPeak": { "input": 0.00000015, "output": 0.0000006, "cacheRead": 0.000000003 },
+    "peak": { "input": 0.0000003, "output": 0.0000012, "cacheRead": 0.000000006 }
+  },
+  "deepseek-official/deepseek-v4-flash-vision-exp": {
+    "offPeak": { "input": 0.00000015, "output": 0.0000006, "cacheRead": 0.000000003 },
+    "peak": { "input": 0.0000003, "output": 0.0000012, "cacheRead": 0.000000006 }
+  }
+}
