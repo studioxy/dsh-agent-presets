@@ -250,27 +250,30 @@ Write-Head '6. Machine-specific paths'
 # ---------------------------------------------------------------------------
 
 $pathsToCheck = @()
-foreach ($bundle in @('coding','excel-pq')) {
-    $p = Join-Path $Dest "profile-bundles\$bundle\cordis.patch.yml"
+$bundleDirs = Get-ChildItem (Join-Path $Dest 'profile-bundles') -Directory -ErrorAction SilentlyContinue
+foreach ($b in $bundleDirs) {
+    $p = Join-Path $b.FullName 'cordis.patch.yml'
     if (-not (Test-Path $p)) { continue }
     $t = Get-Content $p -Raw
-    foreach ($m in [regex]::Matches($t, "EXCEL_FILES_PATH:\s*'([^']+)'")) {
-        $pathsToCheck += [pscustomobject]@{ What='EXCEL_FILES_PATH (excel-pq)'; Path=$m.Groups[1].Value }
-    }
-    foreach ($m in [regex]::Matches($t, "- '(D:\\\\[^']+|C:\\\\[^']+)'")) {
-        $lit = $m.Groups[1].Value -replace '\\\\','\'
-        $pathsToCheck += [pscustomobject]@{ What='literal path in an MCP row'; Path=$lit }
+
+    # An absolute path in a bundle appears either as an MCP argument (- 'C:\...') or as an
+    # environment value (NAME: 'C:\...'). The character class avoids escaping backslashes entirely:
+    # requiring a doubled backslash matches nothing in a file that has single ones, which is exactly
+    # how the first version of this check silently found one path out of seven.
+    foreach ($m in [regex]::Matches($t, "(?:- |:\s*)'([A-Z]:[^']+)'")) {
+        $pathsToCheck += [pscustomobject]@{ Bundle=$b.Name; Path=$m.Groups[1].Value }
     }
 }
 
 if ($pathsToCheck.Count -eq 0) {
-    Write-Warn 'nie znalazlem sciezek do sprawdzenia'
+    Write-Warn 'nie znalazlem zadnych absolutnych sciezke w bundle - sprawdz recznie'
 } else {
+    Write-Info "znaleziono $($pathsToCheck.Count) absolutnych sciezke"
     foreach ($p in $pathsToCheck) {
         if (Test-Path $p.Path) {
-            Write-Ok "$($p.What): $($p.Path)"
+            Write-Ok ("{0,-10} {1}" -f $p.Bundle, $p.Path)
         } else {
-            Write-Warn "$($p.What): $($p.Path)  <- NIE ISTNIEJE"
+            Write-Warn ("{0,-10} {1}  <- NIE ISTNIEJE" -f $p.Bundle, $p.Path)
             Write-Info 'popraw w profile-bundles, potem uruchom ten skrypt ponownie'
         }
     }
