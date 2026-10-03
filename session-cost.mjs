@@ -214,6 +214,10 @@ function analyse(path, prices, overrides) {
   let current = null
   let turns = 0
   let steps = 0
+  // 7 x 24 grid in LOCAL time, so a heatmap reads the way the person works rather than in UTC.
+  const hourly = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => ({ cost: 0, tokens: 0, requests: 0 })))
+  let peaked = 0
+  let offPeaked = 0
 
   for (const line of text.split('\n')) {
     if (!line) continue
@@ -265,11 +269,20 @@ function analyse(path, prices, overrides) {
 
       // off-peak counterfactual, so the peak premium can be sized even for a flat-priced model
       acc.offPeakCounterfactual += inp * p.in + out * p.out + cac * cacheRate
+
+      // hourly histogram in local time, and a count of which tariff each request landed in
+      const when = new Date(j.time ?? Date.now())
+      const cell = hourly[when.getDay()][when.getHours()]
+      cell.cost += line
+      cell.tokens += inp + out + cac
+      cell.requests++
+      if (p.tariff === 'peak') peaked++
+      else if (p.tariff === 'offPeak') offPeaked++
     }
     byModel.set(key, acc)
   }
 
-  return { byModel, turns, steps }
+  return { byModel, turns, steps, hourly, peaked, offPeaked }
 }
 
 const fmt = (n) => n.toLocaleString('en-US')
@@ -311,8 +324,21 @@ if (flag('--html')) {
   const out = next && !next.startsWith('--') ? next : join(import.meta.dirname, 'cost-dashboard.html')
 
   const ageMin = pricePayload.fetchedAt ? Math.round((Date.now() - pricePayload.fetchedAt) / 60000) : null
+
+  // The hourly grid is summed here rather than shipped per session. Embedding 39 separate 7x24 grids
+  // made the file 320 KB for a chart that aggregates them anyway; one summed grid is 168 cells.
+  const hourly = Array.from({ length: 7 }, () => Array.from({ length: 24 }, () => ({ cost: 0, tokens: 0, requests: 0 })))
+  for (const r of results) {
+    for (let d = 0; d < 7; d++) for (let h = 0; h < 24; h++) {
+      const src = r.hourly?.[d]?.[h]
+      if (!src) continue
+      hourly[d][h].cost += src.cost; hourly[d][h].tokens += src.tokens; hourly[d][h].requests += src.requests
+    }
+  }
+
   const html = render({
     generatedAt: new Date().toISOString().slice(0, 19).replace('T', ' '),
+    hourly,
     prices: {
       count: priceCount,
       age: ageMin === null ? 'nieznany' : ageMin < 60 ? `${ageMin} min temu` : `${(ageMin / 60).toFixed(1)} h temu`,
@@ -321,6 +347,7 @@ if (flag('--html')) {
     overrides: Object.keys(overrides).filter((k) => !k.startsWith('_')).length || null,
     sessions: results.map((r) => ({
       id: r.id, workspace: r.workspace, mtime: r.mtime, turns: r.turns, steps: r.steps,
+      peaked: r.peaked, offPeaked: r.offPeaked,
       // a Set does not survive JSON.stringify, so flatten it here rather than shipping `{}`
       byModel: Object.fromEntries([...r.byModel].map(([k, a]) => [k, {
         requests: a.requests, input: a.input, output: a.output, cache: a.cache,
