@@ -15,7 +15,7 @@ importers:
         specifier: link:../../.agent-presets/profile-bundles/docs
         version: link:../../.agent-presets/profile-bundles/docs
       '@local/dsh-excel-pq-preset':
-        specifier: link:C:/Users/andrz/.dsh/.agent-presets/profile-bundles/excel-pq
+        specifier: link:../../.agent-presets/profile-bundles/excel-pq
         version: link:../../.agent-presets/profile-bundles/excel-pq
       '@local/dsh-powerbi-preset':
         specifier: link:../../.agent-presets/profile-bundles/powerbi

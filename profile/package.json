@@ -4,7 +4,7 @@
   "dependencies": {
     "@local/dsh-coding-preset": "link:../../.agent-presets/profile-bundles/coding",
     "@local/dsh-docs-preset": "link:../../.agent-presets/profile-bundles/docs",
-    "@local/dsh-excel-pq-preset": "link:C:/Users/andrz/.dsh/.agent-presets/profile-bundles/excel-pq",
+    "@local/dsh-excel-pq-preset": "link:../../.agent-presets/profile-bundles/excel-pq",
     "@local/dsh-powerbi-preset": "link:../../.agent-presets/profile-bundles/powerbi",
     "@local/dsh-web-preset": "link:../../.agent-presets/profile-bundles/web"
   },

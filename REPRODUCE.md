@@ -211,17 +211,29 @@ every file it replaces into `.backup-<timestamp>/`, which `.gitignore` excludes.
 
 ### Machine-specific values after cloning
 
-Three places name absolute paths, and a different Windows account name breaks all three:
+Four places name absolute paths. A different Windows account name breaks the first two, and the
+other two point at directories that have to exist on the new machine:
 
 ```
-coding/agent.cordis.yml     --project  <the workspace Serena serves>
-                            --context  <where serena/contexts/ lives>
-profiles/web/package.json   link:../../.agent-presets/profile-bundles/<id>
+coding/agent.cordis.yml       --project  <the workspace Serena serves>
+                              --context  <where serena/contexts/ lives>
+profile-bundles/excel-pq/     EXCEL_FILES_PATH: 'C:\xlsx'
+  cordis.patch.yml              the folder the excel-files MCP may read
+profiles/web/package.json     link:../../.agent-presets/profile-bundles/<id>
 ```
 
 The `link:` entries are relative, so they survive a move as long as the repository stays at
-`<dshHome>/.agent-presets`. The two Serena paths are absolute and do not: `--project` in particular
-is literal by necessity, because DSH does not interpolate `{{cwd}}` in an MCP row's arguments.
+`<dshHome>/.agent-presets`. The Serena `--project` is absolute by necessity, because DSH does not
+interpolate `{{cwd}}` in an MCP row's arguments.
+
+**`EXCEL_FILES_PATH` is the one that fails quietly in a new way:** it is an environment value for the
+`excel-files` MCP, not a command argument, and the row sets `EXCEL_MCP_READ_ONLY: '1'` beside it. If
+the directory does not exist the MCP starts and simply finds nothing to read, which looks like an
+empty workbook folder rather than a misconfiguration.
+
+**Two of the `excel-pq` scripts import `openpyxl`, and the bare `python` on this machine does not
+have it.** It resolves to another tool's virtualenv, which must not be installed into; section 4.6
+covers that. On a new machine, check it before trusting those scripts.
 
 ### One risk this recipe does not remove
 
