@@ -17,7 +17,7 @@ const expected = {
   powerbi: { order: 10, name: 'Power BI / Deneb', mcp: ['mcp-powerbi-modeling'], skills: 12 },
   docs:    { order: 20, name: 'Documentation / HTML / PDF', mcp: ['mcp-chrome-devtools'], skills: 12 },
   coding:  { order: 30, name: 'Software engineering', mcp: ['mcp-serena', 'mcp-context7'], skills: 38 },
-  web:     { order: 40, name: 'Web development', mcp: ['mcp-context7', 'mcp-chrome-devtools'], skills: 23 },
+  web:     { order: 40, name: 'Web development', mcp: ['mcp-context7', 'mcp-chrome-devtools'], skills: 30 },
 };
 
 let failures = 0;
@@ -92,8 +92,10 @@ for (const p of Object.keys(expected)) {
   if (!Array.isArray(dirs) || dirs.length !== 1 || dirs[0] !== want) {
     fail(p + ': customSkillDirs ' + JSON.stringify(dirs) + ' != ' + JSON.stringify([want]));
   }
+  // A directory without SKILL.md is not a skill: the provider requires <name>/SKILL.md, so
+  // skills/seo/ - which exists only to hold one reference file another skill reads - is not counted.
   const onDisk = fs.readdirSync(path.join(legacyDir, p, 'skills'), { withFileTypes: true })
-    .filter((d) => d.isDirectory()).length;
+    .filter((d) => d.isDirectory() && fs.existsSync(path.join(legacyDir, p, 'skills', d.name, 'SKILL.md'))).length;
   if (onDisk !== exp.skills) fail(p + ': ' + onDisk + ' skill dirs on disk, expected ' + exp.skills);
 
   const pkg = JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'));

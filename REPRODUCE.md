@@ -252,7 +252,7 @@ pinned content. If you would rather not maintain copies, the user skill root
 `<dshHome>/skills` is read by every preset and holds one copy — the tradeoff is that it falls
 outside this repository and therefore outside version control.
 
-### 4.5 `web` — 23 skills, 2 MCP
+### 4.5 `web` — 30 skills, 2 MCP
 
 Built from the other presets and from one further upstream, rather than from a single collection,
 because none covered this cleanly. It is the frontend and web-application composition: TypeScript
@@ -263,6 +263,37 @@ and JavaScript, accessible markup, component architecture, APIs, browser verific
 | `coding` | `api-and-interface-design`, `browser-testing-with-devtools`, `code-review-and-quality`, `code-simplification`, `context-engineering`, `frontend-ui-engineering`, `git-workflow-and-versioning`, `incremental-implementation`, `performance-optimization`, `security-and-hardening`, `source-driven-development`, `spec-driven-development`, `systematic-debugging`, `test-design`, `test-driven-development`, `verification-before-completion`, `repo-orientation`, `humanizer`, `model-orchestration` |
 | `docs` | `high-end-visual-design` |
 | magnus919/agent-skills (MIT, `54d81f7e0205`) | `web-accessibility`, `react`, `frontend-engineering` |
+| AgriciDaniel/claude-seo (MIT, `ff87fcee0734`) | `seo-technical`, `seo-schema`, `seo-sitemap`, `seo-page`, `seo-agentic`, `seo-geo`, `seo-plan` |
+
+**The SEO family does not decompose, and that is worth knowing before cherry-picking it.** Seven
+skills were taken and the set still needed one file out of an eighth. `seo-technical` hands off to
+`seo-agentic` and points at `seo-geo` for its crawler table; `seo-sitemap` loads templates from
+`../seo-plan/assets/`; and `seo-schema` instructs the agent to *read*
+`../seo/references/schema-types.md`. That last one is satisfied by a `skills/seo/references/`
+directory holding the single file, **with deliberately no `SKILL.md`**, so the provider does not
+treat it as a skill while the path still resolves.
+
+The repository's own `seo` skill is *not* installed even though it owns that file. It is an agency
+orchestrator that dispatches to thirty sibling skills, carries seventeen references about backlinks,
+local search and Google Maps, and names several skills the repository does not contain — installing
+it would create more dangling pointers than it resolves.
+
+**A checker must not assume every directory under a skill root is a skill.** Three of mine did, and
+each reported a defect that did not exist once `skills/seo/` appeared. The provider's filter requires
+`<name>/SKILL.md`, so a directory without one is ignored rather than rejected; a checker that counts
+directories rather than `SKILL.md` files disagrees with the provider about what is installed.
+
+The two remaining cross-references in `frontend-engineering` and `react` point at sibling skills
+from their own collection (`playwright`, `vite`, `mobile-development`) from *When Not To Use*
+sections. Those are routing notes rather than content reads: the skill says the topic is not its
+job. They are left as they are.
+
+**Rejected while searching:** `vercel-labs/agent-skills` (31,859 stars) carries no LICENSE file
+anywhere in the repository, which defaults to all rights reserved; and the `web-design-guidelines`
+skill the review recommended is 1.2 KB because it **fetches its rules at run time** from a Vercel
+URL rather than containing them, so it is not the stub it appears to be but it does carry a live
+network dependency. Its sibling `react-best-practices` is a proper bundle: ~70 rule files in eight
+prioritised categories.
 
 The three vendored additions are whole bundles, since a thin `SKILL.md` with references beside it is
 the intended shape:
